@@ -1,0 +1,14 @@
+{
+  "model_type": "RandomForestClassifier",
+  "accuracy": 0.79165,
+  "features": [
+    "table_number",
+    "guest_count",
+    "day_of_week",
+    "hour_of_day"
+  ],
+  "target": "reserved",
+  "trained_on": "2025-06-19T13:43:56.154414",
+  "dataset_size": 100000,
+  "purpose": "restaurant_table_availability"
+}
