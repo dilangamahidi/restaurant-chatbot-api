@@ -418,11 +418,7 @@ def test():
         'restaurant': RESTAURANT_INFO['name']
     })
 
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
-
-# 🔧 AGGIUNGI QUESTO ENDPOINT QUI (dopo /test)
+# 🔧 SPOSTA QUESTO QUI (PRIMA di if __name__)
 @app.route('/ping')
 def ping():
     """Keep-alive endpoint per evitare cold starts"""
@@ -432,3 +428,7 @@ def ping():
         'model_loaded': model is not None,
         'uptime': 'running'
     })
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
