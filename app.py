@@ -226,9 +226,9 @@ def handle_check_availability(parameters):
         
         if result['available']:
             table_num = result['table_number']
-            response_text = f"✅ Great! Table {table_num} is available for {guest_count} guests! Would you like to make a reservation? I'll need your name and phone number."
+            response_text = f"✅ Great! Table {table_num} is available for {guest_count} guests! I made the reservation!"
         else:
-            response_text = f"😔 Sorry, no tables available for {guest_count} guests at that time. Would you like to try a different time? Call us at {RESTAURANT_INFO['phone']}."
+            response_text = f"😔 Sorry, no tables available for {guest_count} guests at that time. Would you like to try a different time?"
             
         return jsonify({'fulfillmentText': response_text})
         
