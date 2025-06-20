@@ -203,7 +203,9 @@ def dialogflow_webhook():
 def handle_check_table_specific(parameters):
     """Gestisce controllo tavolo specifico"""
     try:
-        # Funzione helper per estrarre valori
+        # 🔧 AGGIUNGI QUESTA LINEA PER DEBUG
+        print(f"DEBUG - Raw parameters: {parameters}")
+        
         def extract_value(param):
             if isinstance(param, list):
                 return param[0] if param else None
@@ -211,12 +213,18 @@ def handle_check_table_specific(parameters):
         
         # Estrai parametri
         table_raw = parameters.get('table_number', parameters.get('number', ''))
-        date_raw = parameters.get('date', '')
-        time_raw = parameters.get('time', '')
+        date_raw = parameters.get('date', parameters.get('day_of_week', ''))
+        time_raw = parameters.get('time', parameters.get('hour_of_day', ''))
+        
+        # 🔧 AGGIUNGI ANCHE QUESTO
+        print(f"DEBUG - Extracted raw: table={table_raw}, date={date_raw}, time={time_raw}")
         
         table_number = extract_value(table_raw)
         date = extract_value(date_raw)
         time = extract_value(time_raw)
+        
+        # 🔧 E QUESTO
+        print(f"DEBUG - Final values: table={table_number}, date={date}, time={time}")
         
         # Valida table number
         try:
