@@ -198,33 +198,70 @@ def dialogflow_webhook():
         })
 
 def handle_check_availability(parameters):
-    """Gestisce controllo disponibilità"""
+    """Gestisce controllo disponibilità - VERSIONE CORRETTA"""
     try:
-        # Estrai parametri
-        guests = parameters.get('guest_count', parameters.get('number', 2))
-        date = parameters.get('date', '')
-        time = parameters.get('time', '')
+        # Funzione helper per estrarre valori
+        def extract_value(param):
+            if isinstance(param, list):
+                return param[0] if param else None
+            return param
         
+        # Estrai parametri gestendo liste
+        guests_raw = parameters.get('guest_count', parameters.get('number', 2))
+        date_raw = parameters.get('date', parameters.get('day_of_week', ''))
+        time_raw = parameters.get('time', parameters.get('hour_of_day', ''))
+        
+        guests = extract_value(guests_raw)
+        date = extract_value(date_raw)
+        time = extract_value(time_raw)
+        
+        # Converti a int
         guest_count = int(guests) if guests else 2
         
-        # Converti date/time in parametri ML
+        # Converti date/time
         day_of_week, hour_of_day = parse_dialogflow_datetime(date, time)
         
-        # Trova tavolo disponibile
+        # Trova tavolo
         result = find_available_table(guest_count, day_of_week, hour_of_day)
         
         if result['available']:
             table_num = result['table_number']
-            total = result['total_available']
-            response_text = f"✅ Great! Table {table_num} is available for {guest_count} guests! ({total} tables available). Would you like to make a reservation? I'll need your name and phone number."
+            response_text = f"✅ Great! Table {table_num} is available for {guest_count} guests! Would you like to make a reservation? I'll need your name and phone number."
         else:
-            response_text = f"😔 Sorry, no tables available for {guest_count} guests at that time. Would you like to try a different time? Call us at {RESTAURANT_INFO['phone']} for more options."
+            response_text = f"😔 Sorry, no tables available for {guest_count} guests at that time. Would you like to try a different time? Call us at {RESTAURANT_INFO['phone']}."
             
         return jsonify({'fulfillmentText': response_text})
         
     except Exception as e:
-        return jsonify({'fulfillmentText': f'Error checking availability: {str(e)}'})
+        print(f"Error: {e}")
+        return jsonify({'fulfillmentText': 'Sorry, error checking availability. Please call us.'})
 
+def parse_dialogflow_datetime(date_param, time_param):
+    """Parse date/time da Dialogflow"""
+    try:
+        day_of_week = 5  # Default Saturday
+        hour_of_day = 19  # Default 7PM
+        
+        if date_param:
+            date_str = str(date_param)
+            if 'T' in date_str:
+                clean_date = date_str.split('T')[0]
+                from datetime import datetime
+                parsed_date = datetime.strptime(clean_date, '%Y-%m-%d')
+                day_of_week = parsed_date.weekday()
+        
+        if time_param:
+            time_str = str(time_param)
+            if 'T' in time_str:
+                time_part = time_str.split('T')[1].split('+')[0]
+                hour_of_day = int(time_part.split(':')[0])
+            else:
+                hour_of_day = convert_time_to_hour(time_str)
+        
+        return day_of_week, hour_of_day
+    except:
+        return 5, 19
+        
 def handle_make_reservation(parameters):
     """Gestisce creazione prenotazione"""
     try:
