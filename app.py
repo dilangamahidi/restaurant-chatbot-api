@@ -170,6 +170,9 @@ def dialogflow_webhook():
         if intent_name == 'check.availability':
             return handle_check_availability(parameters)
             
+        elif intent_name == 'check.table.specific':  # 🔧 NUOVO
+            return handle_check_table_specific(parameters)
+            
         elif intent_name == 'make.reservation':
             return handle_make_reservation(parameters)
             
@@ -196,6 +199,61 @@ def dialogflow_webhook():
         return jsonify({
             'fulfillmentText': f"Sorry, I'm having technical difficulties. Please call us at {RESTAURANT_INFO['phone']}."
         })
+
+def handle_check_table_specific(parameters):
+    """Gestisce controllo tavolo specifico"""
+    try:
+        # Funzione helper per estrarre valori
+        def extract_value(param):
+            if isinstance(param, list):
+                return param[0] if param else None
+            return param
+        
+        # Estrai parametri
+        table_raw = parameters.get('table_number', parameters.get('number', ''))
+        date_raw = parameters.get('date', '')
+        time_raw = parameters.get('time', '')
+        
+        table_number = extract_value(table_raw)
+        date = extract_value(date_raw)
+        time = extract_value(time_raw)
+        
+        # Valida table number
+        try:
+            table_num = int(table_number) if table_number else None
+            if not table_num or table_num < 1 or table_num > 20:
+                return jsonify({'fulfillmentText': "Please specify a table number between 1 and 20."})
+        except ValueError:
+            return jsonify({'fulfillmentText': "Please provide a valid table number."})
+        
+        # Controlla parametri mancanti
+        missing = []
+        if not date:
+            missing.append("the date")
+        if not time:
+            missing.append("the time")
+            
+        if missing:
+            missing_text = " and ".join(missing)
+            return jsonify({'fulfillmentText': f"I need {missing_text} to check table {table_num} availability."})
+        
+        # Converti date/time per ML
+        day_of_week, hour_of_day = parse_dialogflow_datetime(date, time)
+        
+        # Controlla tavolo specifico (usando guest_count=4 come default per il check)
+        is_available = check_table_availability(table_num, 4, day_of_week, hour_of_day)
+        
+        if is_available:
+            response_text = f"✅ Good news! Table {table_num} is available on {date} at {time}. Would you like to make a reservation for this table?"
+        else:
+            response_text = f"😔 Sorry, table {table_num} is already reserved on {date} at {time}. Would you like me to check other available tables for that time?"
+            
+        return jsonify({'fulfillmentText': response_text})
+        
+    except Exception as e:
+        print(f"Error in check_table_specific: {e}")
+        return jsonify({'fulfillmentText': 'Sorry, error checking table availability. Please call us.'})
+
 
 def handle_check_availability(parameters):
     """Gestisce controllo disponibilità - VERSIONE CORRETTA"""
