@@ -263,26 +263,46 @@ def parse_dialogflow_datetime(date_param, time_param):
         return 5, 19
         
 def handle_make_reservation(parameters):
-    """Gestisce creazione prenotazione"""
+    """Gestisce prenotazione completa con tutti i dati"""
     try:
-        # Estrai parametri
-        name = parameters.get('person', {}).get('name', '') if parameters.get('person') else ''
-        phone = parameters.get('phone-number', '')
-        guests = parameters.get('guest_count', parameters.get('number', 2))
-        date = parameters.get('date', '')
-        time = parameters.get('time', '')
+        # Estrai tutti i parametri
+        def extract_value(param):
+            if isinstance(param, list):
+                return param[0] if param else None
+            return param
+        
+        # Dati personali
+        person_data = parameters.get('person', {})
+        name = extract_value(person_data.get('name', '')) if person_data else extract_value(parameters.get('person', ''))
+        phone = extract_value(parameters.get('phone_number', ''))
+        email = extract_value(parameters.get('email', ''))
+        
+        # Dati prenotazione
+        guests = extract_value(parameters.get('guest_count', parameters.get('number', 2)))
+        date = extract_value(parameters.get('date', ''))
+        time = extract_value(parameters.get('time', ''))
         
         guest_count = int(guests) if guests else 2
         
-        # Controlla parametri richiesti
+        # Controlla parametri mancanti
         missing = []
         if not name:
-            missing.append("name")
+            missing.append("your full name")
         if not phone:
-            missing.append("phone number")
+            missing.append("your phone number")
+        if not email:
+            missing.append("your email address")
+        if not date:
+            missing.append("the date")
+        if not time:
+            missing.append("the time")
             
         if missing:
-            return jsonify({'fulfillmentText': f"I need your {' and '.join(missing)} to complete the reservation."})
+            if len(missing) == 1:
+                return jsonify({'fulfillmentText': f"I need {missing[0]} to complete your reservation."})
+            else:
+                missing_text = ", ".join(missing[:-1]) + f" and {missing[-1]}"
+                return jsonify({'fulfillmentText': f"I need {missing_text} to complete your reservation."})
         
         # Controlla disponibilità
         day_of_week, hour_of_day = parse_dialogflow_datetime(date, time)
@@ -290,14 +310,38 @@ def handle_make_reservation(parameters):
         
         if result['available']:
             table_num = result['table_number']
-            response_text = f"🎉 Perfect {name}! I've reserved table {table_num} for {guest_count} guests. Reservation details:\n\n• Name: {name}\n• Phone: {phone}\n• Guests: {guest_count}\n• Table: {table_num}\n\nWe look forward to serving you!"
+            
+            # Qui salveresti in Google Sheets e invieresti email
+            
+            response_text = f"""🎉 Reservation Confirmed!
+            
+📋 Details:
+- Name: {name}
+- Phone: {phone} 
+- Email: {email}
+- Guests: {guest_count}
+- Date: {date}
+- Time: {time}
+- Table: {table_num}
+
+We look forward to serving you! We'll contact you if there are any changes.
+
+For any questions, call us at {RESTAURANT_INFO['phone']}."""
+            
         else:
-            response_text = f"😔 Sorry {name}, no tables available for {guest_count} guests at that time. Please call {RESTAURANT_INFO['phone']} for alternative times."
+            response_text = f"""😔 Sorry {name}, no tables are available for {guest_count} guests at that time. 
+
+Would you like to try:
+- Different time on the same day?
+- Different date?
+
+Or call us at {RESTAURANT_INFO['phone']} for more options."""
             
         return jsonify({'fulfillmentText': response_text})
         
     except Exception as e:
-        return jsonify({'fulfillmentText': f'Error making reservation: {str(e)}'})
+        print(f"Error in make_reservation: {e}")
+        return jsonify({'fulfillmentText': f'Sorry, there was an error processing your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'})
 
 def handle_show_menu(parameters):
     """Gestisce visualizzazione menu"""
