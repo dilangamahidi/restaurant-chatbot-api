@@ -5,6 +5,16 @@ import numpy as np
 from datetime import datetime
 import os
 import re
+import gspread
+from google.oauth2.service_account import Credentials
+import json
+
+SCOPES = [
+    'https://www.googleapis.com/auth/spreadsheets',
+    'https://www.googleapis.com/auth/drive'
+]
+
+SHEET_ID = "1QTaGoxeQur4Rh03tJETcRwExbmTvU1FF6TE1v0UjuMk"
 
 app = Flask(__name__)
 CORS(app)
@@ -33,6 +43,66 @@ MENU = {
     "dinner": ["Fish Curry", "Chicken Curry", "Seafood Platter", "Vegetarian Curry"],
     "beverages": ["King Coconut", "Ceylon Tea", "Fresh Juices", "Local Beer"]
 }
+
+def init_google_sheets():
+    """Inizializza connessione a Google Sheets"""
+    try:
+        # Carica le credenziali
+        creds = Credentials.from_service_account_file('credentials.json', scopes=SCOPES)
+        client = gspread.authorize(creds)
+        
+        # Apri il foglio
+        sheet = client.open_by_key(SHEET_ID).sheet1
+        return sheet
+    except Exception as e:
+        print(f"❌ Errore Google Sheets: {e}")
+        return None
+
+def save_reservation_to_sheets(reservation_data):
+    """Salva prenotazione su Google Sheets"""
+    try:
+        sheet = init_google_sheets()
+        if not sheet:
+            print("❌ Impossibile connettersi a Google Sheets")
+            return False
+        
+        # Prepara i dati per il foglio
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        row_data = [
+            timestamp,
+            reservation_data['name'],
+            reservation_data['phone'],
+            reservation_data['email'],
+            reservation_data['guests'],
+            reservation_data['date'],
+            reservation_data['time'],
+            reservation_data['table'],
+            'Confirmed'
+        ]
+        
+        # Aggiungi la riga al foglio
+        sheet.append_row(row_data)
+        print(f"✅ Prenotazione salvata su Google Sheets: {reservation_data['name']}")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Errore salvando su Google Sheets: {e}")
+        return False
+
+def get_reservations_from_sheets():
+    """Recupera tutte le prenotazioni dal foglio"""
+    try:
+        sheet = init_google_sheets()
+        if not sheet:
+            return []
+        
+        # Ottieni tutti i record (saltando l'header)
+        records = sheet.get_all_records()
+        return records
+        
+    except Exception as e:
+        print(f"❌ Errore leggendo da Google Sheets: {e}")
+        return []
 
 def check_existing_reservation(name, phone, date, time):
     """Controlla se esiste già una prenotazione identica"""
