@@ -46,22 +46,47 @@ MENU = {
 }
 
 def get_user_reservations(phone_number):
-    """Recupera tutte le prenotazioni attive di un utente per telefono"""
+    """Recupera tutte le prenotazioni attive di un utente per telefono - VERSION CON DEBUG"""
     try:
         reservations = get_reservations_from_sheets()
+        print(f"🔧 DEBUG - Total reservations in sheet: {len(reservations)}")
+        print(f"🔧 DEBUG - Looking for phone: '{phone_number}' (type: {type(phone_number)})")
+        
+        # Stampa tutte le prenotazioni per debug
+        for i, reservation in enumerate(reservations):
+            print(f"🔧 DEBUG - Reservation {i+1}:")
+            print(f"    Name: '{reservation.get('Name', '')}' (type: {type(reservation.get('Name', ''))})")
+            print(f"    Phone: '{reservation.get('Phone', '')}' (type: {type(reservation.get('Phone', ''))})")
+            print(f"    Status: '{reservation.get('Status', '')}' (type: {type(reservation.get('Status', ''))})")
+            print(f"    Date: '{reservation.get('Date', '')}' (type: {type(reservation.get('Date', ''))})")
+            print(f"    All keys: {list(reservation.keys())}")
+        
         user_reservations = []
         
         for reservation in reservations:
-            if (reservation.get('Phone', '').strip() == str(phone_number).strip() and 
-                reservation.get('Status', '') == 'Confirmed'):
+            phone_in_sheet = str(reservation.get('Phone', '')).strip()
+            status_in_sheet = str(reservation.get('Status', '')).strip()
+            phone_to_find = str(phone_number).strip()
+            
+            print(f"🔧 DEBUG - Comparing:")
+            print(f"    Phone in sheet: '{phone_in_sheet}' == '{phone_to_find}' ? {phone_in_sheet == phone_to_find}")
+            print(f"    Status in sheet: '{status_in_sheet}' == 'Confirmed' ? {status_in_sheet == 'Confirmed'}")
+            
+            if phone_in_sheet == phone_to_find and status_in_sheet == 'Confirmed':
                 user_reservations.append(reservation)
+                print(f"✅ MATCH FOUND for phone {phone_number}")
+            else:
+                print(f"❌ NO MATCH for phone {phone_number}")
         
+        print(f"🔧 DEBUG - Found {len(user_reservations)} matching reservations")
         return user_reservations
         
     except Exception as e:
         print(f"❌ Error getting user reservations: {e}")
+        import traceback
+        print(f"❌ TRACEBACK: {traceback.format_exc()}")
         return []
-
+        
 def update_reservation_status(phone, date, time, new_status):
     """Aggiorna lo status di una prenotazione specifica"""
     try:
@@ -274,27 +299,58 @@ def handle_cancel_reservation(parameters):
         return jsonify({'fulfillmentText': f'Sorry, error cancelling your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'})
 
 def handle_check_my_reservation(parameters):
-    """Gestisce richiesta di controllo delle proprie prenotazioni"""
+    """Gestisce richiesta di controllo delle proprie prenotazioni - VERSION CON DEBUG"""
     try:
         print(f"🔧 DEBUG - Check my reservation parameters: {parameters}")
         
         # Estrai numero di telefono
         phone_raw = parameters.get('phone_number', parameters.get('phone', ''))
+        print(f"🔧 DEBUG - phone_raw: {phone_raw} (type: {type(phone_raw)})")
+        
         phone = extract_value(phone_raw)
         
-        print(f"🔧 DEBUG - Extracted phone: {phone}")
+        print(f"🔧 DEBUG - Extracted phone: '{phone}' (type: {type(phone)})")
         
         if not phone:
             return jsonify({
-                'fulfillmentText': "Please provide your phone number to check your reservations."
+                'fulfillmentText': "To check your reservations, I need your phone number for security. Please provide the phone number you used when booking."
             })
         
         # Cerca prenotazioni dell'utente
+        print(f"🔧 DEBUG - About to search for reservations...")
         user_reservations = get_user_reservations(phone)
+        print(f"🔧 DEBUG - Search completed, found {len(user_reservations)} reservations")
+        
+        if not user_reservations:
+            # Aggiungi suggerimenti per formati di telefono diversi
+            phone_variants = [
+                phone,
+                phone.replace(' ', ''),
+                phone.replace('-', ''),
+                phone.replace('(', '').replace(')', ''),
+                phone.replace('+', ''),
+                f"+94{phone}" if not phone.startswith('+') else phone[3:],
+                f"0{phone}" if not phone.startswith('0') else phone[1:],
+            ]
+            
+            # Rimuovi duplicati mantenendo l'ordine
+            phone_variants = list(dict.fromkeys(phone_variants))
+            
+            print(f"🔧 DEBUG - Trying phone variants: {phone_variants}")
+            
+            # Prova tutte le varianti
+            for variant in phone_variants:
+                if variant != phone:  # Evita di ricontrollare lo stesso numero
+                    print(f"🔧 DEBUG - Trying variant: '{variant}'")
+                    variant_reservations = get_user_reservations(variant)
+                    if variant_reservations:
+                        user_reservations = variant_reservations
+                        print(f"🔧 DEBUG - Found reservations with variant: '{variant}'")
+                        break
         
         if not user_reservations:
             return jsonify({
-                'fulfillmentText': f"I couldn't find any active reservations for phone number {phone}. Would you like to make a new reservation?"
+                'fulfillmentText': f"I couldn't find any active reservations for phone number {phone}. Please check the number format (try with/without spaces, +94 prefix, etc.) or call us at {RESTAURANT_INFO['phone']}."
             })
         
         if len(user_reservations) == 1:
@@ -388,50 +444,77 @@ def handle_check_my_reservation(parameters):
             
     except Exception as e:
         print(f"❌ Error in check_my_reservation: {e}")
+        import traceback
+        print(f"❌ TRACEBACK: {traceback.format_exc()}")
         return jsonify({'fulfillmentText': f'Sorry, error checking your reservations. Please call us at {RESTAURANT_INFO["phone"]}.'})
 
 def extract_value(param):
-    """Estrae valore da parametri Dialogflow con controlli robusti"""
+    """Estrae valore da parametri Dialogflow con controlli robusti - VERSION CON DEBUG"""
     try:
+        print(f"🔧 DEBUG - extract_value input: {param} (type: {type(param)})")
+        
         if param is None or param == '':
+            print(f"🔧 DEBUG - extract_value: param is None or empty")
             return None
         elif isinstance(param, list):
             # Se è una lista, prendi il primo elemento
             first_item = param[0] if param and len(param) > 0 else None
+            print(f"🔧 DEBUG - extract_value: list, first_item = {first_item}")
             if isinstance(first_item, dict):
                 # Se il primo elemento è un dizionario, estrai il valore
                 if 'name' in first_item and first_item['name']:
-                    return str(first_item['name']).strip()
+                    result = str(first_item['name']).strip()
+                    print(f"🔧 DEBUG - extract_value: returning from dict.name = '{result}'")
+                    return result
                 elif 'value' in first_item and first_item['value']:
-                    return str(first_item['value']).strip()
+                    result = str(first_item['value']).strip()
+                    print(f"🔧 DEBUG - extract_value: returning from dict.value = '{result}'")
+                    return result
                 else:
                     # Prendi il primo valore non vuoto del dizionario
                     for value in first_item.values():
                         if value and str(value).strip():
-                            return str(value).strip()
+                            result = str(value).strip()
+                            print(f"🔧 DEBUG - extract_value: returning from dict first value = '{result}'")
+                            return result
+                    print(f"🔧 DEBUG - extract_value: no valid value in dict")
                     return None
             else:
-                return str(first_item).strip() if first_item not in ['', None] else None
+                result = str(first_item).strip() if first_item not in ['', None] else None
+                print(f"🔧 DEBUG - extract_value: returning from list = '{result}'")
+                return result
         elif isinstance(param, dict):
+            print(f"🔧 DEBUG - extract_value: dict with keys {list(param.keys())}")
             # Se è un dizionario, cerca nelle chiavi comuni
             if 'name' in param and param['name']:
-                return str(param['name']).strip()
+                result = str(param['name']).strip()
+                print(f"🔧 DEBUG - extract_value: returning from dict.name = '{result}'")
+                return result
             elif 'value' in param and param['value']:
-                return str(param['value']).strip()
+                result = str(param['value']).strip()
+                print(f"🔧 DEBUG - extract_value: returning from dict.value = '{result}'")
+                return result
             elif len(param) == 1:
                 # Se ha una sola chiave, prendi quel valore
                 value = list(param.values())[0]
-                return str(value).strip() if value not in ['', None] else None
+                result = str(value).strip() if value not in ['', None] else None
+                print(f"🔧 DEBUG - extract_value: returning single dict value = '{result}'")
+                return result
             else:
                 # Prendi il primo valore non vuoto
                 for value in param.values():
                     if value and str(value).strip():
-                        return str(value).strip()
+                        result = str(value).strip()
+                        print(f"🔧 DEBUG - extract_value: returning first non-empty = '{result}'")
+                        return result
+                print(f"🔧 DEBUG - extract_value: no valid value in multi-key dict")
                 return None
         else:
             # Se è una stringa o altro tipo
             clean_value = str(param).strip()
-            return clean_value if clean_value not in ['', 'None', 'null'] else None
+            result = clean_value if clean_value not in ['', 'None', 'null'] else None
+            print(f"🔧 DEBUG - extract_value: returning string/other = '{result}'")
+            return result
     except Exception as e:
         print(f"❌ Error in extract_value: {e}")
         print(f"❌ Param type: {type(param)}, value: {param}")
