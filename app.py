@@ -402,38 +402,44 @@ def handle_make_reservation(parameters):
         return jsonify({'fulfillmentText': f'Sorry, there was an error processing your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'})
         
 def handle_show_menu(parameters):
-    """Gestisce visualizzazione menu - VERSIONE FORMATTATA"""
+    """Gestisce visualizzazione menu - RICH RESPONSE"""
     menu_category = parameters.get('menu-category', '').lower()
     
     if menu_category and menu_category in MENU:
-        # Categoria specifica
         items = MENU[menu_category]
-        response_text = f"🍽️ {menu_category.title()} Menu:"
-        response_text += "<br><br>"
-        for i, item in enumerate(items, 1):
-            response_text += f"{i}. {item}<br>"
+        response_text = f"🍽️ {menu_category.title()} Menu:\n\n" + "\n".join([f"{i}. {item}" for i, item in enumerate(items, 1)])
     else:
-        # Menu completo - VERSIONE MIGLIORATA
-        response_text = f"🍽️ {RESTAURANT_INFO['name']} Menu:"
-        response_text += "<br><br>"
+        # Usa Rich Response per migliore formattazione
+        response_text = f"🍽️ {RESTAURANT_INFO['name']} Menu"
         
-        response_text += "☀️ <strong>BREAKFAST:</strong><br>"
-        for item in MENU['breakfast']:
-            response_text += f"• {item}<br>"
-            
-        response_text += "<br>🍛 <strong>LUNCH:</strong><br>"
-        for item in MENU['lunch']:
-            response_text += f"• {item}<br>"
-            
-        response_text += "<br>🌅 <strong>DINNER:</strong><br>"
-        for item in MENU['dinner']:
-            response_text += f"• {item}<br>"
-            
-        response_text += "<br>🥤 <strong>BEVERAGES:</strong><br>"
-        for item in MENU['beverages']:
-            response_text += f"• {item}<br>"
-            
-        response_text += f"<br>📞 For prices, call {RESTAURANT_INFO['phone']}"
+        # Rich Response structure
+        rich_response = {
+            "fulfillmentText": response_text,
+            "fulfillmentMessages": [
+                {
+                    "text": {
+                        "text": [
+                            f"""🍽️ {RESTAURANT_INFO['name']} Menu:
+
+☀️ BREAKFAST:
+- {chr(10).join(MENU['breakfast'])}
+
+🍛 LUNCH:
+- {chr(10).join(MENU['lunch'])}
+
+🌅 DINNER:
+- {chr(10).join(MENU['dinner'])}
+
+🥤 BEVERAGES:
+- {chr(10).join(MENU['beverages'])}
+
+📞 For prices, call {RESTAURANT_INFO['phone']}"""
+                        ]
+                    }
+                }
+            ]
+        }
+        return jsonify(rich_response)
     
     return jsonify({'fulfillmentText': response_text})
 
