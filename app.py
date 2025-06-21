@@ -14,7 +14,7 @@ SCOPES = [
     'https://www.googleapis.com/auth/drive'
 ]
 
-SHEET_ID = "1QTaGoxeQur4Rh03tJETcRwExbmTvU1FF6TE1v0UjuMk/edit?gid=0#gid=0"
+SHEET_ID = "1QTaGoxeQur4Rh03tJETcRwExbmTvU1FF6TE1v0UjuMk"
 
 app = Flask(__name__)
 CORS(app)
