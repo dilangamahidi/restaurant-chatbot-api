@@ -169,7 +169,7 @@ def handle_modify_reservation_date(parameters):
         return jsonify({'fulfillmentText': f'Sorry, error modifying your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'})
 
 def handle_modify_reservation_time(parameters):
-    """Gestisce modifica dell'orario di prenotazione - VERSIONE CORRETTA"""
+    """Gestisce modifica dell'orario di prenotazione - VERSIONE CORRETTA CON LOGICA GIUSTA"""
     try:
         print(f"🔧 DEBUG - Modify time parameters: {parameters}")
         
@@ -223,6 +223,9 @@ def handle_modify_reservation_time(parameters):
         except (ValueError, TypeError):
             guest_count = 2  # Default
         
+        print(f"🔧 DEBUG - Current reservation: {guest_count} guests at {old_time}")
+        print(f"🔧 DEBUG - Requested change to: {new_time}")
+        
         # Formatta il nuovo orario
         try:
             formatted_new_time = format_time_readable(new_time)
@@ -230,10 +233,17 @@ def handle_modify_reservation_time(parameters):
             print(f"❌ Error formatting new time: {e}")
             formatted_new_time = str(new_time)
         
+        # 🔧 CORREZIONE: Quando modifica una prenotazione esistente, 
+        # temporaneamente "libera" il tavolo attuale per il controllo
+        print(f"🔧 DEBUG - Checking availability for {guest_count} guests at {formatted_new_time}")
+        
         # Controlla disponibilità per il nuovo orario
         try:
             day_of_week, hour_of_day = parse_dialogflow_datetime(old_date, new_time)
             result = find_available_table(guest_count, day_of_week, hour_of_day)
+            
+            print(f"🔧 DEBUG - Availability result: {result}")
+            
         except Exception as e:
             print(f"❌ Error checking availability: {e}")
             return jsonify({
@@ -243,6 +253,8 @@ def handle_modify_reservation_time(parameters):
         if result['available']:
             # Aggiorna l'orario e potenzialmente il tavolo
             new_table = result['table_number']
+            
+            print(f"🔧 DEBUG - Updating time to {formatted_new_time} and table to {new_table}")
             
             # Aggiorna orario
             time_updated = update_reservation_field(phone, old_date, old_time, 'time', formatted_new_time)
@@ -276,7 +288,7 @@ def handle_modify_reservation_time(parameters):
                         },
                         {
                             "text": {
-                                "text": [f"🕐 New Time: {formatted_new_time}"]
+                                "text": [f"🕐 New Time: {formatted_new_time} (was {old_time})"]
                             }
                         },
                         {
@@ -306,9 +318,53 @@ def handle_modify_reservation_time(parameters):
         import traceback
         print(f"❌ TRACEBACK: {traceback.format_exc()}")
         return jsonify({'fulfillmentText': f'Sorry, error modifying your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'})
+
+def find_available_table_for_modification(guest_count, day_of_week, hour_of_day, exclude_table=None):
+    """
+    Trova tavolo disponibile per modifiche - esclude il tavolo attuale dalla ricerca
+    """
+    available_tables = []
+    
+    # Controlla tutti i tavoli (1-20), escludendo quello attuale se specificato
+    for table_number in range(1, 21):
+        if exclude_table and table_number == exclude_table:
+            continue  # Salta il tavolo attuale
+            
+        if check_table_availability(table_number, guest_count, day_of_week, hour_of_day):
+            available_tables.append(table_number)
+    
+    # Se non trova altri tavoli disponibili ma ha un tavolo da escludere,
+    # considera anche quello (significa che può mantenere lo stesso tavolo)
+    if not available_tables and exclude_table:
+        if check_table_availability(exclude_table, guest_count, day_of_week, hour_of_day):
+            available_tables.append(exclude_table)
+    
+    if available_tables:
+        # Scegli il miglior tavolo per il numero di ospiti
+        if guest_count <= 2:
+            small_tables = [t for t in available_tables if t <= 8]
+            best_table = small_tables[0] if small_tables else available_tables[0]
+        elif guest_count <= 4:
+            medium_tables = [t for t in available_tables if 9 <= t <= 15]
+            best_table = medium_tables[0] if medium_tables else available_tables[0]
+        else:
+            large_tables = [t for t in available_tables if t >= 16]
+            best_table = large_tables[0] if large_tables else available_tables[0]
+        
+        return {
+            'available': True,
+            'table_number': best_table,
+            'total_available': len(available_tables)
+        }
+    else:
+        return {
+            'available': False,
+            'table_number': None,
+            'total_available': 0
+        }
         
 def handle_modify_reservation_guests(parameters):
-    """Gestisce modifica del numero di ospiti - VERSIONE CORRETTA"""
+    """Gestisce modifica del numero di ospiti - VERSIONE CORRETTA CON LOGICA GIUSTA"""
     try:
         print(f"🔧 DEBUG - Modify guests parameters: {parameters}")
         
@@ -391,20 +447,25 @@ def handle_modify_reservation_guests(parameters):
         old_date = reservation.get('Date', '')
         old_time = reservation.get('Time', '')
         old_guests = reservation.get('Guests', 2)
+        old_table = reservation.get('Table', 1)
         
-        # Controlla disponibilità per il nuovo numero di ospiti
-        try:
+        print(f"🔧 DEBUG - Current reservation: {old_guests} guests at table {old_table}")
+        print(f"🔧 DEBUG - Requested change to: {guest_count} guests")
+        
+        # 🔧 CORREZIONE PRINCIPALE: Se il nuovo numero è <= al vecchio, è sempre possibile!
+        # Se riduci da 5 a 2 persone, ovviamente c'è posto!
+        if guest_count <= int(old_guests):
+            print(f"🔧 DEBUG - Reducing guests from {old_guests} to {guest_count} - always possible!")
+            
+            # Trova il miglior tavolo per il nuovo numero di ospiti
             day_of_week, hour_of_day = parse_dialogflow_datetime(old_date, old_time)
             result = find_available_table(guest_count, day_of_week, hour_of_day)
-        except Exception as e:
-            print(f"❌ Error checking availability: {e}")
-            return jsonify({
-                'fulfillmentText': f"Sorry, I'm having trouble checking availability for {guest_count} guests."
-            })
-        
-        if result['available']:
-            # Aggiorna il numero di ospiti e potenzialmente il tavolo
-            new_table = result['table_number']
+            
+            # Se non trova tavoli disponibili, usa quello attuale (sempre possibile se riduci)
+            if result['available']:
+                new_table = result['table_number']
+            else:
+                new_table = old_table  # Mantieni lo stesso tavolo
             
             # Aggiorna numero ospiti
             guests_updated = update_reservation_field(phone, old_date, old_time, 'guests', guest_count)
@@ -458,10 +519,81 @@ def handle_modify_reservation_guests(parameters):
                 return jsonify({
                     'fulfillmentText': f"Sorry, there was an issue updating your reservation. Please call us at {RESTAURANT_INFO['phone']}."
                 })
+        
+        # Se aumenta il numero di ospiti, controlla disponibilità
         else:
-            return jsonify({
-                'fulfillmentText': f"Sorry, we don't have availability for {guest_count} guests on {old_date} at {old_time}. Please try a different time or date."
-            })
+            print(f"🔧 DEBUG - Increasing guests from {old_guests} to {guest_count} - checking availability")
+            
+            # Controlla disponibilità per il nuovo numero di ospiti
+            try:
+                day_of_week, hour_of_day = parse_dialogflow_datetime(old_date, old_time)
+                result = find_available_table(guest_count, day_of_week, hour_of_day)
+            except Exception as e:
+                print(f"❌ Error checking availability: {e}")
+                return jsonify({
+                    'fulfillmentText': f"Sorry, I'm having trouble checking availability for {guest_count} guests."
+                })
+            
+            if result['available']:
+                # Aggiorna il numero di ospiti e potenzialmente il tavolo
+                new_table = result['table_number']
+                
+                # Aggiorna numero ospiti
+                guests_updated = update_reservation_field(phone, old_date, old_time, 'guests', guest_count)
+                
+                # Aggiorna tavolo se necessario
+                table_updated = update_reservation_field(phone, old_date, old_time, 'table', new_table)
+                
+                if guests_updated and table_updated:
+                    rich_response = {
+                        "fulfillmentText": "✅ Guest count updated successfully!",
+                        "fulfillmentMessages": [
+                            {
+                                "text": {
+                                    "text": ["✅ Number of guests updated successfully!"]
+                                }
+                            },
+                            {
+                                "text": {
+                                    "text": ["📋 Updated reservation details:"]
+                                }
+                            },
+                            {
+                                "text": {
+                                    "text": [f"👤 Name: {reservation.get('Name', '')}"]
+                                }
+                            },
+                            {
+                                "text": {
+                                    "text": [f"📅 Date: {old_date}"]
+                                }
+                            },
+                            {
+                                "text": {
+                                    "text": [f"🕐 Time: {old_time}"]
+                                }
+                            },
+                            {
+                                "text": {
+                                    "text": [f"👥 New Guest Count: {guest_count} (was {old_guests})"]
+                                }
+                            },
+                            {
+                                "text": {
+                                    "text": [f"🪑 Table: {new_table}"]
+                                }
+                            }
+                        ]
+                    }
+                    return jsonify(rich_response)
+                else:
+                    return jsonify({
+                        'fulfillmentText': f"Sorry, there was an issue updating your reservation. Please call us at {RESTAURANT_INFO['phone']}."
+                    })
+            else:
+                return jsonify({
+                    'fulfillmentText': f"Sorry, we don't have availability for {guest_count} guests on {old_date} at {old_time}. We can accommodate up to {old_guests} guests at your current table."
+                })
             
     except Exception as e:
         print(f"❌ Error in modify_reservation_guests: {e}")
