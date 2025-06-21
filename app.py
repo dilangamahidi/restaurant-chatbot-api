@@ -402,7 +402,7 @@ def handle_make_reservation(parameters):
         return jsonify({'fulfillmentText': f'Sorry, there was an error processing your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'})
         
 def handle_show_menu(parameters):
-    """Gestisce visualizzazione menu - RICH RESPONSE FIXED"""
+    """Gestisce visualizzazione menu - RICH RESPONSE"""
     menu_category = parameters.get('menu-category', '').lower()
     
     if menu_category and menu_category in MENU:
@@ -411,12 +411,6 @@ def handle_show_menu(parameters):
     else:
         # Usa Rich Response per migliore formattazione
         response_text = f"🍽️ {RESTAURANT_INFO['name']} Menu"
-        
-        # 🔧 FIX: Metti le emoji su nuove linee
-        breakfast_items = "\n• " + "\n• ".join(MENU['breakfast'])
-        lunch_items = "\n• " + "\n• ".join(MENU['lunch'])
-        dinner_items = "\n• " + "\n• ".join(MENU['dinner'])
-        beverage_items = "\n• " + "\n• ".join(MENU['beverages'])
         
         # Rich Response structure
         rich_response = {
@@ -427,13 +421,17 @@ def handle_show_menu(parameters):
                         "text": [
                             f"""🍽️ {RESTAURANT_INFO['name']} Menu:
 
-☀️ BREAKFAST:{breakfast_items}
+☀️ BREAKFAST:
+- {chr(10).join(MENU['breakfast'])}
 
-🍛 LUNCH:{lunch_items}
+🍛 LUNCH:
+- {chr(10).join(MENU['lunch'])}
 
-🌅 DINNER:{dinner_items}
+🌅 DINNER:
+- {chr(10).join(MENU['dinner'])}
 
-🥤 BEVERAGES:{beverage_items}
+🥤 BEVERAGES:
+- {chr(10).join(MENU['beverages'])}
 
 📞 For prices, call {RESTAURANT_INFO['phone']}"""
                         ]
