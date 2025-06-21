@@ -719,6 +719,12 @@ def dialogflow_webhook():
             return handle_check_availability(parameters)
         elif intent_name == 'check.table.specific':
             return handle_check_table_specific(parameters)
+        elif intent_name == 'modify.reservation':
+            return handle_modify_reservation(parameters)
+        elif intent_name == 'cancel.reservation':
+            return handle_cancel_reservation(parameters)
+        elif intent_name == 'check.my.reservation':
+            return handle_check_my_reservation(parameters)
         elif intent_name == 'show.menu':
             return handle_show_menu(parameters)
         elif intent_name == 'opening.hours':
