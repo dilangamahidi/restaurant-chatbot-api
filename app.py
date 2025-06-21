@@ -402,49 +402,51 @@ def handle_make_reservation(parameters):
         return jsonify({'fulfillmentText': f'Sorry, there was an error processing your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'})
         
 def handle_show_menu(parameters):
-    """Gestisce visualizzazione menu - RICH RESPONSE"""
+    """Gestisce visualizzazione menu - MULTIPLE MESSAGES"""
     menu_category = parameters.get('menu-category', '').lower()
     
     if menu_category and menu_category in MENU:
         items = MENU[menu_category]
         response_text = f"🍽️ {menu_category.title()} Menu:\n\n" + "\n".join([f"{i}. {item}" for i, item in enumerate(items, 1)])
+        return jsonify({'fulfillmentText': response_text})
     else:
-        # Opzione 1: Usa \n\n per forzare doppio a capo
-        breakfast_items = '\n'.join([f"• {item}" for item in MENU['breakfast']])
-        lunch_items = '\n'.join([f"• {item}" for item in MENU['lunch']])
-        dinner_items = '\n'.join([f"• {item}" for item in MENU['dinner']])
-        beverages_items = '\n'.join([f"• {item}" for item in MENU['beverages']])
-        
-        response_text = f"""🍽️ {RESTAURANT_INFO['name']} Menu:
-
-☀️ BREAKFAST:
-{breakfast_items}
-
-🍛 LUNCH:
-{lunch_items}
-
-🌅 DINNER:
-{dinner_items}
-
-🥤 BEVERAGES:
-{beverages_items}
-
-📞 For prices, call {RESTAURANT_INFO['phone']}"""
-        
-        # Rich Response structure
+        # Dividi in messaggi separati
         rich_response = {
-            "fulfillmentText": response_text,
+            "fulfillmentText": f"🍽️ {RESTAURANT_INFO['name']} Menu:",
             "fulfillmentMessages": [
                 {
                     "text": {
-                        "text": [response_text]
+                        "text": [f"🍽️ {RESTAURANT_INFO['name']} Menu:"]
+                    }
+                },
+                {
+                    "text": {
+                        "text": [f"☀️ BREAKFAST:\n" + "\n".join([f"• {item}" for item in MENU['breakfast']])]
+                    }
+                },
+                {
+                    "text": {
+                        "text": [f"🍛 LUNCH:\n" + "\n".join([f"• {item}" for item in MENU['lunch']])]
+                    }
+                },
+                {
+                    "text": {
+                        "text": [f"🌅 DINNER:\n" + "\n".join([f"• {item}" for item in MENU['dinner']])]
+                    }
+                },
+                {
+                    "text": {
+                        "text": [f"🥤 BEVERAGES:\n" + "\n".join([f"• {item}" for item in MENU['beverages']])]
+                    }
+                },
+                {
+                    "text": {
+                        "text": [f"📞 For prices, call {RESTAURANT_INFO['phone']}"]
                     }
                 }
             ]
         }
         return jsonify(rich_response)
-    
-    return jsonify({'fulfillmentText': response_text})
 
 def handle_opening_hours():
     """Gestisce orari apertura - VERSIONE FORMATTATA"""
