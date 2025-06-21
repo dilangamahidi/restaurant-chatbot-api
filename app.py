@@ -44,6 +44,67 @@ MENU = {
     "beverages": ["King Coconut", "Ceylon Tea", "Fresh Juices", "Local Beer"]
 }
 
+def extract_value(param):
+    """Estrae valore da parametri Dialogflow con controlli robusti"""
+    try:
+        if param is None or param == '':
+            return None
+        elif isinstance(param, list):
+            return param[0] if param and param[0] not in ['', None] else None
+        elif isinstance(param, dict):
+            if 'name' in param and param['name']:
+                return param['name']
+            elif 'value' in param and param['value']:
+                return param['value']
+            elif len(param) == 1:
+                value = list(param.values())[0]
+                return value if value not in ['', None] else None
+            else:
+                return str(param) if param else None
+        else:
+            return str(param).strip() if str(param).strip() not in ['', 'None', 'null'] else None
+    except Exception as e:
+        print(f"❌ Error in extract_value: {e}")
+        return None
+
+def validate_reservation_params(name, phone, email, date, time, guests):
+    """Valida tutti i parametri di prenotazione"""
+    errors = []
+    
+    # Nome
+    if not name or len(str(name).strip()) < 2:
+        errors.append("a valid full name (at least 2 characters)")
+    
+    # Telefono
+    if not phone:
+        errors.append("your phone number")
+    elif not re.match(r'^[\d\s\-\+\(\)]+$', str(phone)):
+        errors.append("a valid phone number")
+    
+    # Email
+    if not email:
+        errors.append("your email address")
+    elif not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', str(email)):
+        errors.append("a valid email address")
+    
+    # Data
+    if not date:
+        errors.append("the reservation date")
+    
+    # Ora
+    if not time:
+        errors.append("the reservation time")
+    
+    # Ospiti
+    try:
+        guest_count = int(guests) if guests else 0
+        if guest_count < 1 or guest_count > 20:
+            errors.append("number of guests (1-20)")
+    except (ValueError, TypeError):
+        errors.append("a valid number of guests")
+    
+    return errors
+
 def init_google_sheets():
     """Inizializza connessione a Google Sheets"""
     try:
@@ -235,48 +296,48 @@ def home():
 
 @app.route('/dialogflow-webhook', methods=['POST'])
 def dialogflow_webhook():
-    """Webhook principale per Dialogflow"""
+    """Webhook principale per Dialogflow con controlli migliorati"""
     try:
         req = request.get_json()
-        intent_name = req.get('queryResult', {}).get('intent', {}).get('displayName', '')
-        parameters = req.get('queryResult', {}).get('parameters', {})
         
-        print(f"Intent: {intent_name}, Parameters: {parameters}")
+        if not req:
+            return jsonify({'fulfillmentText': 'No request data received.'})
         
-        if intent_name == 'check.availability':
+        query_result = req.get('queryResult', {})
+        intent = query_result.get('intent', {})
+        intent_name = intent.get('displayName', '')
+        parameters = query_result.get('parameters', {})
+        
+        print(f"🔧 Intent: {intent_name}")
+        print(f"🔧 Parameters: {parameters}")
+        
+        if intent_name == 'make.reservation':
+            return handle_make_reservation(parameters)
+        elif intent_name == 'check.availability':
             return handle_check_availability(parameters)
-            
         elif intent_name == 'check.table.specific':
             return handle_check_table_specific(parameters)
-            
-        elif intent_name == 'make.reservation':
-            return handle_make_reservation(parameters)
-            
         elif intent_name == 'show.menu':
             return handle_show_menu(parameters)
-            
         elif intent_name == 'opening.hours':
             return handle_opening_hours()
-            
         elif intent_name in ['restaurant.info']:
             return handle_restaurant_info()
-            
         elif intent_name == 'contact.human':
             return handle_contact_human()
-            
         elif intent_name == 'restaurant.location':
             return handle_restaurant_location()
-            
         else:
             # Default welcome
             response_text = f"🍽️ Welcome to {RESTAURANT_INFO['name']}! {RESTAURANT_INFO['description']}. I can help you check availability, make reservations, view our menu, or provide information. How can I assist you?"
-        
-        return jsonify({'fulfillmentText': response_text})
+            return jsonify({'fulfillmentText': response_text})
         
     except Exception as e:
-        print(f"Webhook error: {e}")
+        print(f"❌ WEBHOOK ERROR: {e}")
+        print(f"❌ TRACEBACK: {traceback.format_exc()}")
+        
         return jsonify({
-            'fulfillmentText': f"Sorry, I'm having technical difficulties. Please call us at {RESTAURANT_INFO['phone']}."
+            'fulfillmentText': f"I'm experiencing technical difficulties. Please call us at {RESTAURANT_INFO['phone']} for immediate assistance."
         })
         
 def handle_check_table_specific(parameters):
@@ -428,174 +489,126 @@ def format_time_readable(time_string):
         return str(time_string)
         
 def handle_make_reservation(parameters):
-    """Gestisce prenotazione completa - MULTIPLE MESSAGES"""
+    """Gestisce prenotazione completa con controlli robusti"""
     try:
-        # 🔧 DEBUG - Stampa tutti i parametri ricevuti
         print(f"🔧 DEBUG - RAW PARAMETERS: {parameters}")
         
-        def extract_value(param):
-            if isinstance(param, list):
-                return param[0] if param else None
-            elif isinstance(param, dict):
-                if 'name' in param:
-                    return param['name']
-                elif 'value' in param:
-                    return param['value']
-                elif len(param) == 1:
-                    return list(param.values())[0]
-                else:
-                    return str(param)
-            return param
-        
-        # Estrai dati personali
-        name = extract_value(parameters.get('name', ''))
-        phone = extract_value(parameters.get('phone_number', ''))
+        # Estrai parametri con controlli robusti
+        name = extract_value(parameters.get('name', parameters.get('person', '')))
+        phone = extract_value(parameters.get('phone_number', parameters.get('phone', '')))
         email = extract_value(parameters.get('email', ''))
-        
-        # Dati prenotazione
-        guests = extract_value(parameters.get('guest_count', parameters.get('number', 2)))
+        guests = extract_value(parameters.get('guest_count', parameters.get('number', parameters.get('guests', 2))))
         date = extract_value(parameters.get('day_of_week', parameters.get('date', '')))
         time = extract_value(parameters.get('hour_of_day', parameters.get('time', '')))
         
-        formatted_date = format_date_readable(date) if date else date
-        formatted_time = format_time_readable(time) if time else time
-        guest_count = int(guests) if guests else 2
+        print(f"🔧 DEBUG - Extracted: name={name}, phone={phone}, email={email}, guests={guests}, date={date}, time={time}")
         
-        # Controlla parametri mancanti
-        missing = []
-        if not name or name.lower() in ['none', 'null', '']:
-            missing.append("your full name")
-        if not phone:
-            missing.append("your phone number")
-        if not email:
-            missing.append("your email address")
-        if not date:
-            missing.append("the date")
-        if not time:
-            missing.append("the time")
+        # Valida tutti i parametri
+        validation_errors = validate_reservation_params(name, phone, email, date, time, guests)
+        
+        if validation_errors:
+            if len(validation_errors) == 1:
+                error_text = validation_errors[0]
+            elif len(validation_errors) == 2:
+                error_text = f"{validation_errors[0]} and {validation_errors[1]}"
+            else:
+                error_text = f"{', '.join(validation_errors[:-1])}, and {validation_errors[-1]}"
             
-        if missing:
-            missing_text = ", ".join(missing[:-1]) + f" and {missing[-1]}" if len(missing) > 1 else missing[0]
-            return jsonify({'fulfillmentText': f"I need {missing_text} to complete your reservation."})
-        
-        # 🆕 CONTROLLO DUPLICATI
-        if check_existing_reservation(name, phone, formatted_date, formatted_time):
             return jsonify({
-                'fulfillmentText': f"⚠️ It looks like you already have a reservation for {formatted_date} at {formatted_time}. Please contact us if you need to modify it."
+                'fulfillmentText': f"I need {error_text} to complete your reservation. Please provide the missing information."
             })
         
+        # Converti ospiti in numero
+        try:
+            guest_count = int(guests)
+        except (ValueError, TypeError):
+            guest_count = 2
+        
+        # Formatta data e ora
+        try:
+            formatted_date = format_date_readable(date)
+            formatted_time = format_time_readable(time)
+        except Exception as e:
+            print(f"❌ Error formatting date/time: {e}")
+            formatted_date = str(date)
+            formatted_time = str(time)
+        
+        # Controllo duplicati
+        try:
+            if check_existing_reservation(name, phone, formatted_date, formatted_time):
+                return jsonify({
+                    'fulfillmentText': f"⚠️ You already have a reservation for {formatted_date} at {formatted_time}. Contact us to modify it."
+                })
+        except Exception as e:
+            print(f"❌ Error checking duplicates: {e}")
+            # Continua comunque
+        
         # Controlla disponibilità
-        day_of_week, hour_of_day = parse_dialogflow_datetime(date, time)
-        result = find_available_table(guest_count, day_of_week, hour_of_day)
+        try:
+            day_of_week, hour_of_day = parse_dialogflow_datetime(date, time)
+            result = find_available_table(guest_count, day_of_week, hour_of_day)
+        except Exception as e:
+            print(f"❌ Error checking availability: {e}")
+            return jsonify({
+                'fulfillmentText': f"Sorry, I'm having trouble checking availability. Please call us at {RESTAURANT_INFO['phone']}."
+            })
         
         if result['available']:
             table_num = result['table_number']
             
-            # 🆕 PREPARA DATI PER GOOGLE SHEETS
+            # Prepara dati per salvataggio
             reservation_data = {
-                'name': name,
-                'phone': phone,
-                'email': email,
+                'name': str(name).strip(),
+                'phone': str(phone).strip(),
+                'email': str(email).strip(),
                 'guests': guest_count,
                 'date': formatted_date,
                 'time': formatted_time,
                 'table': table_num
             }
             
-            # 🆕 SALVA SU GOOGLE SHEETS
-            sheets_saved = save_reservation_to_sheets(reservation_data)
+            # Salva su Google Sheets
+            try:
+                sheets_saved = save_reservation_to_sheets(reservation_data)
+            except Exception as e:
+                print(f"❌ Error saving to sheets: {e}")
+                sheets_saved = False
             
-            # Prepara la risposta
-            rich_response = {
-                "fulfillmentText": "🎉 Reservation Confirmed!",
-                "fulfillmentMessages": [
-                    {
-                        "text": {
-                            "text": ["🎉 Reservation Confirmed!"]
-                        }
-                    },
-                    {
-                        "text": {
-                            "text": [f"👤 Name: {name}"]
-                        }
-                    },
-                    {
-                        "text": {
-                            "text": [f"📞 Phone: {phone}"]
-                        }
-                    },
-                    {
-                        "text": {
-                            "text": [f"📧 Email: {email}"]
-                        }
-                    },
-                    {
-                        "text": {
-                            "text": [f"👥 Number of guests: {guest_count}"]
-                        }
-                    },
-                    {
-                        "text": {
-                            "text": [f"📅 Date: {formatted_date}"]
-                        }
-                    },
-                    {
-                        "text": {
-                            "text": [f"🕐 Time: {formatted_time}"]
-                        }
-                    },
-                    {
-                        "text": {
-                            "text": [f"🪑 Table assigned: {table_num}"]
-                        }
-                    },
-                    {
-                        "text": {
-                            "text": ["✅ Your reservation is confirmed!"]
-                        }
-                    }
-                ]
-            }
+            # Risposta di successo
+            success_message = f"🎉 Reservation Confirmed!\n\n"
+            success_message += f"👤 Name: {name}\n"
+            success_message += f"📞 Phone: {phone}\n"
+            success_message += f"📧 Email: {email}\n"
+            success_message += f"👥 Guests: {guest_count}\n"
+            success_message += f"📅 Date: {formatted_date}\n"
+            success_message += f"🕐 Time: {formatted_time}\n"
+            success_message += f"🪑 Table: {table_num}\n\n"
+            success_message += "✅ Your reservation is confirmed!"
             
-            # 🆕 AGGIUNGI MESSAGGIO SE SHEETS NON FUNZIONA
             if not sheets_saved:
-                rich_response["fulfillmentMessages"].append({
-                    "text": {
-                        "text": ["📝 Note: Reservation saved locally. Our staff will contact you to confirm."]
-                    }
-                })
+                success_message += "\n\n📝 Note: Our staff will contact you to confirm details."
             
-            return jsonify(rich_response)
+            return jsonify({'fulfillmentText': success_message})
             
         else:
             # Nessuna disponibilità
-            rich_response = {
-                "fulfillmentText": f"😔 Sorry {name}, no tables available",
-                "fulfillmentMessages": [
-                    {
-                        "text": {
-                            "text": [f"😔 Sorry {name}, no tables are available for {guest_count} guests at that time."]
-                        }
-                    },
-                    {
-                        "text": {
-                            "text": ["Would you like to try:\n• Different time on the same day?\n• Different date?"]
-                        }
-                    },
-                    {
-                        "text": {
-                            "text": [f"Or call us at {RESTAURANT_INFO['phone']} for more options."]
-                        }
-                    }
-                ]
-            }
-            return jsonify(rich_response)
+            no_availability_message = f"😔 Sorry {name}, no tables are available for {guest_count} guests on {formatted_date} at {formatted_time}.\n\n"
+            no_availability_message += "Would you like to try:\n"
+            no_availability_message += "• A different time on the same day?\n"
+            no_availability_message += "• A different date?\n\n"
+            no_availability_message += f"Or call us at {RESTAURANT_INFO['phone']} for more options."
+            
+            return jsonify({'fulfillmentText': no_availability_message})
             
     except Exception as e:
-        print(f"🔧 ERROR in make_reservation: {e}")
-        import traceback
-        print(f"🔧 TRACEBACK: {traceback.format_exc()}")
-        return jsonify({'fulfillmentText': f'Sorry, there was an error processing your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'})
+        print(f"❌ CRITICAL ERROR in make_reservation: {e}")
+        print(f"❌ TRACEBACK: {traceback.format_exc()}")
+        
+        # Messaggio di errore più specifico
+        error_message = f"I'm sorry, there was a technical issue processing your reservation. "
+        error_message += f"Please call us directly at {RESTAURANT_INFO['phone']} and we'll be happy to help you immediately."
+        
+        return jsonify({'fulfillmentText': error_message})
         
 def handle_show_menu(parameters):
     """Gestisce visualizzazione menu - MULTIPLE MESSAGES"""
