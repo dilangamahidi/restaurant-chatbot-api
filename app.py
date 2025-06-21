@@ -332,7 +332,7 @@ def parse_dialogflow_datetime(date_param, time_param):
         return 5, 19
         
 def handle_make_reservation(parameters):
-    """Gestisce prenotazione completa - VERSIONE FORMATTATA"""
+    """Gestisce prenotazione completa - MULTIPLE MESSAGES"""
     try:
         # Estrai tutti i parametri
         def extract_value(param):
@@ -376,30 +376,77 @@ def handle_make_reservation(parameters):
         # Controlla disponibilità
         day_of_week, hour_of_day = parse_dialogflow_datetime(date, time)
         result = find_available_table(guest_count, day_of_week, hour_of_day)
+        
         if result['available']:
             table_num = result['table_number']
             
-            response_text = f"🎉 <strong>Reservation Confirmed!</strong><br><br>"
-            response_text += "📋 <strong>Details:</strong><br>"
-            response_text += f"• <strong>Name:</strong> {name}<br>"
-            response_text += f"• <strong>Phone:</strong> {phone}<br>"
-            response_text += f"• <strong>Email:</strong> {email}<br>"
-            response_text += f"• <strong>Guests:</strong> {guest_count}<br>"
-            response_text += f"• <strong>Date:</strong> {date}<br>"
-            response_text += f"• <strong>Time:</strong> {time}<br>"
-            response_text += f"• <strong>Table:</strong> {table_num}<br><br>"
-            response_text += "We look forward to serving you! We'll contact you if there are any changes.<br><br>"
-            response_text += f"For any questions, call us at {RESTAURANT_INFO['phone']}."
+            # Usa multiple messages invece di HTML
+            rich_response = {
+                "fulfillmentText": "🎉 Reservation Confirmed!",
+                "fulfillmentMessages": [
+                    {
+                        "text": {
+                            "text": ["🎉 Reservation Confirmed!"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": ["📋 Reservation Details:"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": [f"👤 Name: {name}\n📞 Phone: {phone}\n📧 Email: {email}"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": [f"👥 Guests: {guest_count}\n📅 Date: {date}\n🕐 Time: {time}"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": [f"🪑 Table: {table_num}"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": ["We look forward to serving you! We'll contact you if there are any changes."]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": [f"For questions: {RESTAURANT_INFO['phone']}"]
+                        }
+                    }
+                ]
+            }
+            return jsonify(rich_response)
             
         else:
-            response_text = f"😔 Sorry {name}, no tables are available for {guest_count} guests at that time.<br><br>"
-            response_text += "<strong>Would you like to try:</strong><br>"
-            response_text += "• Different time on the same day?<br>"
-            response_text += "• Different date?<br><br>"
-            response_text += f"Or call us at {RESTAURANT_INFO['phone']} for more options."
+            # Nessuna disponibilità
+            rich_response = {
+                "fulfillmentText": f"😔 Sorry {name}, no tables available",
+                "fulfillmentMessages": [
+                    {
+                        "text": {
+                            "text": [f"😔 Sorry {name}, no tables are available for {guest_count} guests at that time."]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": ["Would you like to try:\n• Different time on the same day?\n• Different date?"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": [f"Or call us at {RESTAURANT_INFO['phone']} for more options."]
+                        }
+                    }
+                ]
+            }
+            return jsonify(rich_response)
             
-        return jsonify({'fulfillmentText': response_text})
-        
     except Exception as e:
         print(f"Error in make_reservation: {e}")
         return jsonify({'fulfillmentText': f'Sorry, there was an error processing your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'})
