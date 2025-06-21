@@ -8,6 +8,7 @@ import re
 import gspread
 from google.oauth2.service_account import Credentials
 import json
+import traceback
 
 SCOPES = [
     'https://www.googleapis.com/auth/spreadsheets',
@@ -90,6 +91,114 @@ def extract_value(param):
         print(f"❌ Error in extract_value: {e}")
         print(f"❌ Param type: {type(param)}, value: {param}")
         return None
+
+def validate_reservation_params(name, phone, email, date, time, guests):
+    """Valida tutti i parametri di prenotazione"""
+    errors = []
+    
+    # Nome
+    if not name or len(str(name).strip()) < 2:
+        errors.append("a valid full name (at least 2 characters)")
+    
+    # Telefono
+    if not phone:
+        errors.append("your phone number")
+    elif not re.match(r'^[\d\s\-\+\(\)]+$', str(phone)):
+        errors.append("a valid phone number")
+    
+    # Email
+    if not email:
+        errors.append("your email address")
+    elif not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', str(email)):
+        errors.append("a valid email address")
+    
+    # Data
+    if not date:
+        errors.append("the reservation date")
+    
+    # Ora
+    if not time:
+        errors.append("the reservation time")
+    
+    # Ospiti
+    try:
+        guest_count = int(guests) if guests else 0
+        if guest_count < 1 or guest_count > 20:
+            errors.append("number of guests (1-20)")
+    except (ValueError, TypeError):
+        errors.append("a valid number of guests")
+    
+    return errors
+
+# Aggiungi questa funzione che manca
+def handle_check_availability(parameters):
+    """Gestisce controllo disponibilità generale"""
+    try:
+        print(f"🔧 DEBUG - Check availability parameters: {parameters}")
+        
+        # Estrai parametri
+        guests = extract_value(parameters.get('guest_count', parameters.get('number', parameters.get('guests', 2))))
+        date = extract_value(parameters.get('day_of_week', parameters.get('date', '')))
+        time = extract_value(parameters.get('hour_of_day', parameters.get('time', '')))
+        
+        print(f"🔧 DEBUG - Extracted: guests={guests}, date={date}, time={time}")
+        
+        # Controlla parametri mancanti
+        missing = []
+        if not guests:
+            missing.append("number of guests")
+        if not date:
+            missing.append("the date")
+        if not time:
+            missing.append("the time")
+            
+        if missing:
+            missing_text = " and ".join(missing)
+            return jsonify({'fulfillmentText': f"I need {missing_text} to check availability. Please provide the missing information."})
+        
+        # Converti ospiti in numero
+        try:
+            guest_count = int(guests)
+            if guest_count < 1 or guest_count > 20:
+                return jsonify({'fulfillmentText': "Please specify between 1 and 20 guests."})
+        except (ValueError, TypeError):
+            return jsonify({'fulfillmentText': "Please provide a valid number of guests."})
+        
+        # Formatta data e ora per display
+        try:
+            formatted_date = format_date_readable(date)
+            formatted_time = format_time_readable(time)
+        except Exception as e:
+            print(f"❌ Error formatting date/time: {e}")
+            formatted_date = str(date)
+            formatted_time = str(time)
+        
+        # Controlla disponibilità
+        try:
+            day_of_week, hour_of_day = parse_dialogflow_datetime(date, time)
+            result = find_available_table(guest_count, day_of_week, hour_of_day)
+        except Exception as e:
+            print(f"❌ Error checking availability: {e}")
+            return jsonify({
+                'fulfillmentText': f"Sorry, I'm having trouble checking availability. Please call us at {RESTAURANT_INFO['phone']}."
+            })
+        
+        if result['available']:
+            response_text = f"✅ Great news! We have availability for {guest_count} guests on {formatted_date} at {formatted_time}.\n\n"
+            response_text += f"We have {result['total_available']} tables available at that time.\n\n"
+            response_text += "Would you like to make a reservation? I'll need your name, phone number, and email address."
+        else:
+            response_text = f"😔 Sorry, we don't have availability for {guest_count} guests on {formatted_date} at {formatted_time}.\n\n"
+            response_text += "Would you like to try:\n"
+            response_text += "• A different time on the same day?\n"
+            response_text += "• A different date?\n\n"
+            response_text += f"Or call us at {RESTAURANT_INFO['phone']} for more options."
+        
+        return jsonify({'fulfillmentText': response_text})
+        
+    except Exception as e:
+        print(f"❌ Error in check_availability: {e}")
+        return jsonify({'fulfillmentText': f'Sorry, error checking availability. Please call us at {RESTAURANT_INFO["phone"]}.'})
 
 def init_google_sheets():
     """Inizializza connessione a Google Sheets"""
