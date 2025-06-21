@@ -169,17 +169,25 @@ def handle_modify_reservation_date(parameters):
         return jsonify({'fulfillmentText': f'Sorry, error modifying your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'})
 
 def handle_modify_reservation_time(parameters):
-    """Gestisce modifica dell'orario di prenotazione"""
+    """Gestisce modifica dell'orario di prenotazione - VERSIONE CORRETTA"""
     try:
         print(f"🔧 DEBUG - Modify time parameters: {parameters}")
         
         # Estrai parametri
         phone_raw = parameters.get('phone_number', parameters.get('phone', ''))
         phone = extract_value(phone_raw)
-        new_time_raw = parameters.get('new_time', parameters.get('time', ''))
+        
+        # 🔧 CORREZIONE: Aggiungi più chiavi per trovare il nuovo orario
+        new_time_raw = parameters.get('new_time', 
+                      parameters.get('time', 
+                      parameters.get('hour_of_day',
+                      parameters.get('booking_time',
+                      parameters.get('reservation_time', '')))))
+        
         new_time = extract_value(new_time_raw)
         
         print(f"🔧 DEBUG - Extracted: phone={phone}, new_time={new_time}")
+        print(f"🔧 DEBUG - All parameters keys: {list(parameters.keys())}")
         
         if not phone:
             return jsonify({
@@ -209,6 +217,12 @@ def handle_modify_reservation_time(parameters):
         old_time = reservation.get('Time', '')
         guests = reservation.get('Guests', 2)
         
+        # 🔧 CORREZIONE: Assicurati che guests sia un numero
+        try:
+            guest_count = int(guests)
+        except (ValueError, TypeError):
+            guest_count = 2  # Default
+        
         # Formatta il nuovo orario
         try:
             formatted_new_time = format_time_readable(new_time)
@@ -219,7 +233,7 @@ def handle_modify_reservation_time(parameters):
         # Controlla disponibilità per il nuovo orario
         try:
             day_of_week, hour_of_day = parse_dialogflow_datetime(old_date, new_time)
-            result = find_available_table(int(guests), day_of_week, hour_of_day)
+            result = find_available_table(guest_count, day_of_week, hour_of_day)
         except Exception as e:
             print(f"❌ Error checking availability: {e}")
             return jsonify({
@@ -267,7 +281,7 @@ def handle_modify_reservation_time(parameters):
                         },
                         {
                             "text": {
-                                "text": [f"👥 Guests: {guests}"]
+                                "text": [f"👥 Guests: {guest_count}"]
                             }
                         },
                         {
@@ -284,25 +298,36 @@ def handle_modify_reservation_time(parameters):
                 })
         else:
             return jsonify({
-                'fulfillmentText': f"Sorry, we don't have availability for {guests} guests on {old_date} at {formatted_new_time}. Please try a different time."
+                'fulfillmentText': f"Sorry, we don't have availability for {guest_count} guests on {old_date} at {formatted_new_time}. Please try a different time."
             })
             
     except Exception as e:
         print(f"❌ Error in modify_reservation_time: {e}")
+        import traceback
+        print(f"❌ TRACEBACK: {traceback.format_exc()}")
         return jsonify({'fulfillmentText': f'Sorry, error modifying your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'})
-
+        
 def handle_modify_reservation_guests(parameters):
-    """Gestisce modifica del numero di ospiti"""
+    """Gestisce modifica del numero di ospiti - VERSIONE CORRETTA"""
     try:
         print(f"🔧 DEBUG - Modify guests parameters: {parameters}")
         
-        # Estrai parametri
+        # Estrai parametri con più opzioni
         phone_raw = parameters.get('phone_number', parameters.get('phone', ''))
         phone = extract_value(phone_raw)
-        new_guests_raw = parameters.get('new_guests', parameters.get('guests', parameters.get('number', '')))
+        
+        # 🔧 CORREZIONE: Aggiungi più chiavi per trovare il numero di ospiti
+        new_guests_raw = parameters.get('new_guests', 
+                         parameters.get('guests', 
+                         parameters.get('number', 
+                         parameters.get('guest_count',
+                         parameters.get('people',
+                         parameters.get('party_size', ''))))))
+        
         new_guests = extract_value(new_guests_raw)
         
         print(f"🔧 DEBUG - Extracted: phone={phone}, new_guests={new_guests}")
+        print(f"🔧 DEBUG - All parameters keys: {list(parameters.keys())}")
         
         if not phone:
             return jsonify({
@@ -314,16 +339,39 @@ def handle_modify_reservation_guests(parameters):
                 'fulfillmentText': "Please specify the new number of guests for your reservation."
             })
         
-        # Converti numero ospiti
+        # 🔧 CORREZIONE: Migliora conversione numero ospiti
         try:
-            guest_count = int(new_guests)
+            # Prima pulisci la stringa
+            guest_str = str(new_guests).strip().lower()
+            
+            # Rimuovi parole comuni
+            for word in ['guests', 'people', 'persons', 'guest', 'person']:
+                guest_str = guest_str.replace(word, '')
+            guest_str = guest_str.strip()
+            
+            # Converti parole in numeri
+            word_to_num = {
+                'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+                'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+                'eleven': 11, 'twelve': 12, 'thirteen': 13, 'fourteen': 14, 'fifteen': 15,
+                'sixteen': 16, 'seventeen': 17, 'eighteen': 18, 'nineteen': 19, 'twenty': 20
+            }
+            
+            if guest_str in word_to_num:
+                guest_count = word_to_num[guest_str]
+            else:
+                # Prova conversione numerica
+                guest_count = int(float(guest_str))
+            
             if guest_count < 1 or guest_count > 20:
                 return jsonify({
                     'fulfillmentText': "I can accommodate between 1 and 20 guests. Please specify a valid number."
                 })
-        except (ValueError, TypeError):
+                
+        except (ValueError, TypeError) as e:
+            print(f"❌ Error converting guests '{new_guests}': {e}")
             return jsonify({
-                'fulfillmentText': "Please provide a valid number of guests."
+                'fulfillmentText': f"Please provide a valid number of guests. You said '{new_guests}' but I need a number between 1 and 20."
             })
         
         # Cerca prenotazione esistente
@@ -417,6 +465,8 @@ def handle_modify_reservation_guests(parameters):
             
     except Exception as e:
         print(f"❌ Error in modify_reservation_guests: {e}")
+        import traceback
+        print(f"❌ TRACEBACK: {traceback.format_exc()}")
         return jsonify({'fulfillmentText': f'Sorry, error modifying your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'})
 
 def update_reservation_field(phone, old_date, old_time, field, new_value):
@@ -936,72 +986,85 @@ def handle_check_my_reservation(parameters):
         return jsonify({'fulfillmentText': f'Sorry, error checking your reservations. Please call us at {RESTAURANT_INFO["phone"]}.'})
 
 def extract_value(param):
-    """Estrae valore da parametri Dialogflow con controlli robusti - VERSION CON DEBUG"""
+    """Estrae valore da parametri Dialogflow - VERSIONE MIGLIORATA"""
     try:
         print(f"🔧 DEBUG - extract_value input: {param} (type: {type(param)})")
         
         if param is None or param == '':
             print(f"🔧 DEBUG - extract_value: param is None or empty")
             return None
+            
+        elif isinstance(param, (int, float)):
+            # Se è già un numero, restituiscilo direttamente
+            result = param
+            print(f"🔧 DEBUG - extract_value: returning number = {result}")
+            return result
+            
         elif isinstance(param, list):
             # Se è una lista, prendi il primo elemento
-            first_item = param[0] if param and len(param) > 0 else None
+            if not param or len(param) == 0:
+                print(f"🔧 DEBUG - extract_value: empty list")
+                return None
+                
+            first_item = param[0]
             print(f"🔧 DEBUG - extract_value: list, first_item = {first_item}")
+            
             if isinstance(first_item, dict):
                 # Se il primo elemento è un dizionario, estrai il valore
-                if 'name' in first_item and first_item['name']:
-                    result = str(first_item['name']).strip()
-                    print(f"🔧 DEBUG - extract_value: returning from dict.name = '{result}'")
-                    return result
-                elif 'value' in first_item and first_item['value']:
-                    result = str(first_item['value']).strip()
-                    print(f"🔧 DEBUG - extract_value: returning from dict.value = '{result}'")
-                    return result
-                else:
-                    # Prendi il primo valore non vuoto del dizionario
-                    for value in first_item.values():
-                        if value and str(value).strip():
-                            result = str(value).strip()
-                            print(f"🔧 DEBUG - extract_value: returning from dict first value = '{result}'")
-                            return result
-                    print(f"🔧 DEBUG - extract_value: no valid value in dict")
-                    return None
+                for key in ['name', 'value', 'amount', 'number']:
+                    if key in first_item and first_item[key] is not None and str(first_item[key]).strip():
+                        result = str(first_item[key]).strip()
+                        print(f"🔧 DEBUG - extract_value: returning from dict.{key} = '{result}'")
+                        return result
+                        
+                # Se non trova le chiavi standard, prendi il primo valore non vuoto
+                for value in first_item.values():
+                    if value is not None and str(value).strip():
+                        result = str(value).strip()
+                        print(f"🔧 DEBUG - extract_value: returning from dict first value = '{result}'")
+                        return result
+                        
+                print(f"🔧 DEBUG - extract_value: no valid value in dict")
+                return None
             else:
                 result = str(first_item).strip() if first_item not in ['', None] else None
                 print(f"🔧 DEBUG - extract_value: returning from list = '{result}'")
                 return result
+                
         elif isinstance(param, dict):
             print(f"🔧 DEBUG - extract_value: dict with keys {list(param.keys())}")
-            # Se è un dizionario, cerca nelle chiavi comuni
-            if 'name' in param and param['name']:
-                result = str(param['name']).strip()
-                print(f"🔧 DEBUG - extract_value: returning from dict.name = '{result}'")
-                return result
-            elif 'value' in param and param['value']:
-                result = str(param['value']).strip()
-                print(f"🔧 DEBUG - extract_value: returning from dict.value = '{result}'")
-                return result
-            elif len(param) == 1:
-                # Se ha una sola chiave, prendi quel valore
+            
+            # Cerca nelle chiavi comuni
+            for key in ['name', 'value', 'amount', 'number']:
+                if key in param and param[key] is not None and str(param[key]).strip():
+                    result = str(param[key]).strip()
+                    print(f"🔧 DEBUG - extract_value: returning from dict.{key} = '{result}'")
+                    return result
+                    
+            # Se ha una sola chiave, prendi quel valore
+            if len(param) == 1:
                 value = list(param.values())[0]
-                result = str(value).strip() if value not in ['', None] else None
-                print(f"🔧 DEBUG - extract_value: returning single dict value = '{result}'")
-                return result
-            else:
-                # Prendi il primo valore non vuoto
-                for value in param.values():
-                    if value and str(value).strip():
-                        result = str(value).strip()
-                        print(f"🔧 DEBUG - extract_value: returning first non-empty = '{result}'")
-                        return result
-                print(f"🔧 DEBUG - extract_value: no valid value in multi-key dict")
-                return None
+                if value is not None and str(value).strip():
+                    result = str(value).strip()
+                    print(f"🔧 DEBUG - extract_value: returning single dict value = '{result}'")
+                    return result
+                    
+            # Prendi il primo valore non vuoto
+            for value in param.values():
+                if value is not None and str(value).strip():
+                    result = str(value).strip()
+                    print(f"🔧 DEBUG - extract_value: returning first non-empty = '{result}'")
+                    return result
+                    
+            print(f"🔧 DEBUG - extract_value: no valid value in multi-key dict")
+            return None
         else:
             # Se è una stringa o altro tipo
             clean_value = str(param).strip()
             result = clean_value if clean_value not in ['', 'None', 'null'] else None
             print(f"🔧 DEBUG - extract_value: returning string/other = '{result}'")
             return result
+            
     except Exception as e:
         print(f"❌ Error in extract_value: {e}")
         print(f"❌ Param type: {type(param)}, value: {param}")
