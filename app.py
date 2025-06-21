@@ -45,6 +45,44 @@ MENU = {
     "beverages": ["King Coconut", "Ceylon Tea", "Fresh Juices", "Local Beer"]
 }
 
+def delete_reservation_from_sheets(phone, date, time):
+    """Elimina completamente una prenotazione dal Google Sheets"""
+    try:
+        sheet = init_google_sheets()
+        if not sheet:
+            return False
+        
+        # Ottieni tutti i dati
+        all_values = sheet.get_all_values()
+        
+        # Trova la riga da eliminare
+        row_to_delete = None
+        for i, row in enumerate(all_values):
+            if (len(row) >= 9 and 
+                row[2].strip() == str(phone).strip() and  # Phone column
+                row[5].strip() == str(date).strip() and   # Date column  
+                row[6].strip() == str(time).strip() and   # Time column
+                row[8].strip() == 'Confirmed'):           # Status column
+                
+                row_to_delete = i + 1  # Google Sheets usa indici 1-based
+                print(f"🔧 DEBUG - Found reservation to delete at row {row_to_delete}")
+                break
+        
+        if row_to_delete:
+            # Elimina la riga
+            sheet.delete_rows(row_to_delete)
+            print(f"✅ Reservation deleted from Google Sheets: phone {phone}, row {row_to_delete}")
+            return True
+        else:
+            print(f"❌ Reservation not found for deletion: phone {phone}")
+            return False
+        
+    except Exception as e:
+        print(f"❌ Error deleting reservation from sheets: {e}")
+        import traceback
+        print(f"❌ TRACEBACK: {traceback.format_exc()}")
+        return False
+
 def get_user_reservations(phone_number):
     """Recupera tutte le prenotazioni attive di un utente per telefono - VERSION CON DEBUG"""
     try:
@@ -202,7 +240,7 @@ def handle_modify_reservation(parameters):
         return jsonify({'fulfillmentText': f'Sorry, error finding your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'})
 
 def handle_cancel_reservation(parameters):
-    """Gestisce richiesta di cancellazione prenotazione"""
+    """Gestisce richiesta di cancellazione prenotazione - VERSIONE AGGIORNATA"""
     try:
         print(f"🔧 DEBUG - Cancel reservation parameters: {parameters}")
         
@@ -226,24 +264,23 @@ def handle_cancel_reservation(parameters):
             })
         
         if len(user_reservations) == 1:
-            # Una sola prenotazione - cancella automaticamente
+            # Una sola prenotazione - elimina completamente
             reservation = user_reservations[0]
             
-            # Aggiorna status a "Cancelled"
-            success = update_reservation_status(
+            # Elimina la prenotazione dal foglio
+            success = delete_reservation_from_sheets(
                 phone, 
                 reservation.get('Date', ''), 
-                reservation.get('Time', ''), 
-                'Cancelled'
+                reservation.get('Time', '')
             )
             
             if success:
                 rich_response = {
-                    "fulfillmentText": "✅ Reservation cancelled successfully!",
+                    "fulfillmentText": "✅ Reservation cancelled and removed successfully!",
                     "fulfillmentMessages": [
                         {
                             "text": {
-                                "text": ["✅ Reservation cancelled successfully!"]
+                                "text": ["✅ Reservation cancelled and removed successfully!"]
                             }
                         },
                         {
@@ -273,6 +310,16 @@ def handle_cancel_reservation(parameters):
                         },
                         {
                             "text": {
+                                "text": [f"🪑 Table: {reservation.get('Table', '')} (now available again)"]
+                            }
+                        },
+                        {
+                            "text": {
+                                "text": ["🗑️ Your reservation has been completely removed from our system."]
+                            }
+                        },
+                        {
+                            "text": {
                                 "text": ["💔 We're sorry to see you cancel. We hope to see you again soon!"]
                             }
                         }
@@ -288,7 +335,7 @@ def handle_cancel_reservation(parameters):
             # Multiple prenotazioni - mostra lista per scelta manuale
             reservation_list = "📋 Your active reservations:\n\n"
             for i, reservation in enumerate(user_reservations, 1):
-                reservation_list += f"{i}. {reservation.get('Date', '')} at {reservation.get('Time', '')} - {reservation.get('Guests', '')} guests\n"
+                reservation_list += f"{i}. {reservation.get('Date', '')} at {reservation.get('Time', '')} - {reservation.get('Guests', '')} guests (Table {reservation.get('Table', '')})\n"
             
             reservation_list += f"\n📞 Please call us at {RESTAURANT_INFO['phone']} to specify which reservation you'd like to cancel."
             
@@ -296,6 +343,8 @@ def handle_cancel_reservation(parameters):
             
     except Exception as e:
         print(f"❌ Error in cancel_reservation: {e}")
+        import traceback
+        print(f"❌ TRACEBACK: {traceback.format_exc()}")
         return jsonify({'fulfillmentText': f'Sorry, error cancelling your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'})
 
 def handle_check_my_reservation(parameters):
