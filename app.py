@@ -334,19 +334,36 @@ def parse_dialogflow_datetime(date_param, time_param):
 
 def clean_email(email_string):
     """
-    Estrae solo l'indirizzo email valido da una stringa
+    Versione più aggressiva per pulire l'email
     """
     if not email_string:
         return ""
     
-    # Pattern regex per email valide
-    email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+    email_str = str(email_string).strip()
     
-    # Cerca tutte le email nella stringa
-    matches = re.findall(email_pattern, str(email_string))
+    # 1. Cerca pattern email standard
+    email_pattern = r'[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
+    matches = re.findall(email_pattern, email_str)
     
-    # Restituisce la prima email trovata
-    return matches[0] if matches else email_string.strip()
+    if matches:
+        return matches[0]
+    
+    # 2. Se non trova, spezza la stringa e cerca quella con @
+    words = email_str.split()
+    for word in words:
+        if '@' in word and '.' in word:
+            # Pulisci caratteri indesiderati all'inizio e fine
+            cleaned = re.sub(r'^[^a-zA-Z0-9]+|[^a-zA-Z0-9.]+$', '', word)
+            if '@' in cleaned and '.' in cleaned:
+                return cleaned
+    
+    # 3. Ultimo tentativo: rimuovi tutto tranne l'email
+    # Cerca il pattern più lungo che assomiglia a un'email
+    email_like = re.search(r'[a-zA-Z0-9._%+-]*@[a-zA-Z0-9.-]*\.[a-zA-Z]{2,}', email_str)
+    if email_like:
+        return email_like.group()
+    
+    return email_str
 
 def clean_phone(phone_string):
     """
