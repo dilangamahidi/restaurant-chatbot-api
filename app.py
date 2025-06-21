@@ -69,37 +69,6 @@ def convert_time_to_hour(time_str):
     except:
         return 19  # Default 7PM
 
-def parse_dialogflow_datetime(date_param, time_param):
-    """
-    Converte parametri date/time da Dialogflow in day_of_week e hour_of_day
-    """
-    try:
-        # Default values
-        day_of_week = 5  # Saturday
-        hour_of_day = 19  # 7 PM
-        
-        # Parse date se presente
-        if date_param:
-            if isinstance(date_param, str):
-                # Dialogflow può inviare "2024-12-25" o nomi giorni
-                if '-' in date_param:
-                    # ISO date format
-                    parsed_date = datetime.fromisoformat(date_param.replace('Z', '+00:00'))
-                    day_of_week = parsed_date.weekday()
-                else:
-                    # Nome giorno
-                    day_of_week = convert_day_to_number(date_param)
-        
-        # Parse time se presente  
-        if time_param:
-            hour_of_day = convert_time_to_hour(time_param)
-            
-        return day_of_week, hour_of_day
-        
-    except Exception as e:
-        print(f"Error parsing datetime: {e}")
-        return 5, 19  # Default Saturday 7PM
-
 def check_table_availability(table_number, guest_count, day_of_week, hour_of_day):
     """Usa ML model per controllare disponibilità tavolo"""
     if model is None:
@@ -265,46 +234,6 @@ def handle_check_table_specific(parameters):
     except Exception as e:
         print(f"Error in check_table_specific: {e}")
         return jsonify({'fulfillmentText': 'Sorry, error checking table availability. Please call us.'})
-
-
-def handle_check_availability(parameters):
-    """Gestisce controllo disponibilità - VERSIONE CORRETTA"""
-    try:
-        # Funzione helper per estrarre valori
-        def extract_value(param):
-            if isinstance(param, list):
-                return param[0] if param else None
-            return param
-        
-        # Estrai parametri gestendo liste
-        guests_raw = parameters.get('guest_count', parameters.get('number', 2))
-        date_raw = parameters.get('date', parameters.get('day_of_week', ''))
-        time_raw = parameters.get('time', parameters.get('hour_of_day', ''))
-        
-        guests = extract_value(guests_raw)
-        date = extract_value(date_raw)
-        time = extract_value(time_raw)
-        
-        # Converti a int
-        guest_count = int(guests) if guests else 2
-        
-        # Converti date/time
-        day_of_week, hour_of_day = parse_dialogflow_datetime(date, time)
-        
-        # Trova tavolo
-        result = find_available_table(guest_count, day_of_week, hour_of_day)
-        
-        if result['available']:
-            table_num = result['table_number']
-            response_text = f"✅ Great! Table {table_num} is available for {guest_count} guests! I made the reservation!"
-        else:
-            response_text = f"😔 Sorry, no tables available for {guest_count} guests at that time."
-            
-        return jsonify({'fulfillmentText': response_text})
-        
-    except Exception as e:
-        print(f"Error: {e}")
-        return jsonify({'fulfillmentText': 'Sorry, error checking availability. Please call us.'})
 
 def parse_dialogflow_datetime(date_param, time_param):
     """Parse date/time da Dialogflow"""
