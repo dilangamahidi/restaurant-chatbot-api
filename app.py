@@ -567,16 +567,6 @@ def handle_make_reservation(parameters):
                         "text": {
                             "text": [f"😔 Sorry {name}, no tables are available for {guest_count} guests at that time."]
                         }
-                    },
-                    {
-                        "text": {
-                            "text": ["Would you like to try:\n• Different time on the same day?\n• Different date?"]
-                        }
-                    },
-                    {
-                        "text": {
-                            "text": [f"Or call us at {RESTAURANT_INFO['phone']} for more options."]
-                        }
                     }
                 ]
             }
