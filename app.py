@@ -331,6 +331,66 @@ def parse_dialogflow_datetime(date_param, time_param):
         return day_of_week, hour_of_day
     except:
         return 5, 19
+
+def format_date_readable(date_string):
+    """
+    Converte data da formato ISO in formato leggibile
+    """
+    if not date_string:
+        return ""
+    
+    try:
+        # Se è in formato ISO (2025-06-23T12:00:00+02:00)
+        if 'T' in str(date_string):
+            date_part = str(date_string).split('T')[0]
+            date_obj = datetime.strptime(date_part, '%Y-%m-%d')
+        else:
+            # Se è solo la data (2025-06-23)
+            date_obj = datetime.strptime(str(date_string), '%Y-%m-%d')
+        
+        # Formatta come "Monday, June 23, 2025"
+        return date_obj.strftime('%A, %B %d, %Y')
+    except:
+        # Se non riesce a parsare, ritorna l'originale
+        return str(date_string)
+
+def format_time_readable(time_string):
+    """
+    Converte ora da formato ISO in formato leggibile
+    """
+    if not time_string:
+        return ""
+    
+    try:
+        # Se è in formato ISO completo (2025-06-22T12:00:00+02:00)
+        if 'T' in str(time_string):
+            time_part = str(time_string).split('T')[1].split('+')[0]
+            hour = int(time_part.split(':')[0])
+            minute = int(time_part.split(':')[1])
+        else:
+            # Se è solo l'ora (12:00 o 12)
+            time_str = str(time_string).strip()
+            if ':' in time_str:
+                hour = int(time_str.split(':')[0])
+                minute = int(time_str.split(':')[1]) if len(time_str.split(':')) > 1 else 0
+            else:
+                hour = int(time_str)
+                minute = 0
+        
+        # Converte in formato 12h con AM/PM
+        if hour == 0:
+            formatted_time = f"12:{minute:02d} AM"
+        elif hour < 12:
+            formatted_time = f"{hour}:{minute:02d} AM"
+        elif hour == 12:
+            formatted_time = f"12:{minute:02d} PM"
+        else:
+            formatted_time = f"{hour-12}:{minute:02d} PM"
+            
+        return formatted_time
+    except:
+        # Se non riesce a parsare, ritorna l'originale
+        return str(time_string)
         
 def handle_make_reservation(parameters):
     """Gestisce prenotazione completa - MULTIPLE MESSAGES"""
@@ -371,14 +431,14 @@ def handle_make_reservation(parameters):
         date = extract_value(parameters.get('day_of_week', parameters.get('date', '')))
         time = extract_value(parameters.get('hour_of_day', parameters.get('time', '')))
         
-        # 🔧 DEBUG - Valori estratti
-        print(f"🔧 DEBUG - EXTRACTED VALUES:")
-        print(f"   name: '{name}'")
-        print(f"   phone: '{phone}'")
-        print(f"   email: '{email}'")
-        print(f"   guests: '{guests}'")
-        print(f"   date: '{date}'")
-        print(f"   time: '{time}'")
+        # 🔧 PULISCI I DATI ESTRATTI
+        name = clean_name(name) if name else name
+        phone = clean_phone(phone) if phone else phone
+        email = clean_email(email) if email else email
+        
+        # 🔧 FORMATTA DATA E ORA
+        formatted_date = format_date_readable(date) if date else date
+        formatted_time = format_time_readable(time) if time else time
         
         guest_count = int(guests) if guests else 2
         
@@ -420,22 +480,42 @@ def handle_make_reservation(parameters):
                     },
                     {
                         "text": {
-                            "text": ["📋 Reservation Details:"]
+                            "text": [f"👤 Name: {name}"]
                         }
                     },
                     {
                         "text": {
-                            "text": [f"👤 Name: {name}\n📞 Phone: {phone}\n📧 Email: {email}"]
+                            "text": [f"📞 Phone: {phone}"]
                         }
                     },
                     {
                         "text": {
-                            "text": [f"👥 Guests: {guest_count}\n📅 Date: {date}\n🕐 Time: {time}"]
+                            "text": [f"📧 Email: {email}"]
                         }
                     },
                     {
                         "text": {
-                            "text": [f"🪑 Table: {table_num}"]
+                            "text": [f"👥 Number of guests: {guest_count}"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": [f"📅 Date: {formatted_date}"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": [f"🕐 Time: {formatted_time}"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": [f"🪑 Table assigned: {table_num}"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": ["✅ Your reservation is confirmed!"]
                         }
                     },
                     {
@@ -445,7 +525,7 @@ def handle_make_reservation(parameters):
                     },
                     {
                         "text": {
-                            "text": [f"For questions: {RESTAURANT_INFO['phone']}"]
+                            "text": [f"📞 For questions: {RESTAURANT_INFO['phone']}"]
                         }
                     }
                 ]
