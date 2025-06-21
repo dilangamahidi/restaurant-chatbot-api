@@ -170,7 +170,7 @@ def dialogflow_webhook():
         if intent_name == 'check.availability':
             return handle_check_availability(parameters)
             
-        elif intent_name == 'check.table.specific':  # 🔧 NUOVO
+        elif intent_name == 'check.table.specific':
             return handle_check_table_specific(parameters)
             
         elif intent_name == 'make.reservation':
@@ -182,11 +182,14 @@ def dialogflow_webhook():
         elif intent_name == 'opening.hours':
             return handle_opening_hours()
             
-        elif intent_name in ['restaurant.info', 'contact.info']:
+        elif intent_name in ['restaurant.info']:
             return handle_restaurant_info()
             
         elif intent_name == 'contact.human':
             return handle_contact_human()
+            
+        elif intent_name == 'restaurant.location':
+            return handle_restaurant_location()
             
         else:
             # Default welcome
@@ -199,7 +202,7 @@ def dialogflow_webhook():
         return jsonify({
             'fulfillmentText': f"Sorry, I'm having technical difficulties. Please call us at {RESTAURANT_INFO['phone']}."
         })
-
+        
 def handle_check_table_specific(parameters):
     """Gestisce controllo tavolo specifico"""
     try:
@@ -439,11 +442,6 @@ def handle_show_menu(parameters):
                         "text": [f"🥤 BEVERAGES:\n" + "\n".join([f"• {item}" for item in MENU['beverages']])]
                     }
                 },
-                {
-                    "text": {
-                        "text": [f"📞 For prices, call {RESTAURANT_INFO['phone']}"]
-                    }
-                }
             ]
         }
         return jsonify(rich_response)
@@ -468,11 +466,6 @@ def handle_opening_hours():
                     "text": ["📅 Sunday:\n10:00 AM - 08:00 PM"]
                 }
             },
-            {
-                "text": {
-                    "text": [f"📞 For reservations: {RESTAURANT_INFO['phone']}"]
-                }
-            }
         ]
     }
     return jsonify(rich_response)
@@ -536,16 +529,25 @@ def handle_contact_human():
                     "text": [f"📧 Email:\n{RESTAURANT_INFO['email']}"]
                 }
             },
+        ]
+    }
+    return jsonify(rich_response)
+
+def handle_restaurant_location():
+    """Gestisce richiesta location ristorante - MULTIPLE MESSAGES"""
+    rich_response = {
+        "fulfillmentText": f"📍 {RESTAURANT_INFO['name']} Location:",
+        "fulfillmentMessages": [
             {
                 "text": {
-                    "text": [f"📍 Visit us at:\n{RESTAURANT_INFO['address']}"]
+                    "text": [f"📍 {RESTAURANT_INFO['name']} Location:"]
                 }
             },
             {
                 "text": {
-                    "text": ["Available:\nMon-Sat 9AM-9PM\nSun 10AM-8PM"]
+                    "text": [f"🏠 Address:\n{RESTAURANT_INFO['address']}"]
                 }
-            }
+            },
         ]
     }
     return jsonify(rich_response)
