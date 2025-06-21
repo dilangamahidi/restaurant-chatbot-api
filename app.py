@@ -415,13 +415,30 @@ def handle_make_reservation(parameters):
         # Dati personali
         person_data = parameters.get('person', {})
         
-        # 🔧 Prova diverse varianti per il nome
+        # 🔧 MIGLIORE ESTRAZIONE DEL NOME
         if isinstance(person_data, dict):
+            # Se è un dizionario, cerca 'name' o usa il valore del primo campo
             name = extract_value(person_data.get('name', ''))
+            if not name and person_data:
+                # Se non trova 'name', prendi il primo valore non vuoto
+                for key, value in person_data.items():
+                    if value:
+                        name = extract_value(value)
+                        break
         elif isinstance(person_data, str):
             name = person_data
         else:
             name = extract_value(parameters.get('person', ''))
+        
+        # Se il nome contiene ancora formato JSON, estrailo
+        if name and isinstance(name, str) and "'" in name:
+            # Estrae il nome da stringhe come "{'name': 'matteo porro'}"
+            import re
+            match = re.search(r"'([^']+)'", name.split(':')[-1] if ':' in name else name)
+            if match:
+                name = match.group(1).strip()
+                
+        print(f"🔧 DEBUG - FINAL NAME: '{name}'")
             
         phone = extract_value(parameters.get('phone_number', ''))
         email = extract_value(parameters.get('email', ''))
