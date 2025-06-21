@@ -409,8 +409,27 @@ def handle_show_menu(parameters):
         items = MENU[menu_category]
         response_text = f"🍽️ {menu_category.title()} Menu:\n\n" + "\n".join([f"{i}. {item}" for i, item in enumerate(items, 1)])
     else:
-        # Usa Rich Response per migliore formattazione
-        response_text = f"🍽️ {RESTAURANT_INFO['name']} Menu"
+        # Opzione 1: Usa \n\n per forzare doppio a capo
+        breakfast_items = '\n'.join([f"• {item}" for item in MENU['breakfast']])
+        lunch_items = '\n'.join([f"• {item}" for item in MENU['lunch']])
+        dinner_items = '\n'.join([f"• {item}" for item in MENU['dinner']])
+        beverages_items = '\n'.join([f"• {item}" for item in MENU['beverages']])
+        
+        response_text = f"""🍽️ {RESTAURANT_INFO['name']} Menu:
+
+☀️ BREAKFAST:
+{breakfast_items}
+
+🍛 LUNCH:
+{lunch_items}
+
+🌅 DINNER:
+{dinner_items}
+
+🥤 BEVERAGES:
+{beverages_items}
+
+📞 For prices, call {RESTAURANT_INFO['phone']}"""
         
         # Rich Response structure
         rich_response = {
@@ -418,23 +437,7 @@ def handle_show_menu(parameters):
             "fulfillmentMessages": [
                 {
                     "text": {
-                        "text": [
-                            f"""🍽️ {RESTAURANT_INFO['name']} Menu:
-
-☀️ BREAKFAST:
-{chr(10).join([f"- {item}" for item in MENU['breakfast']])}
-
-🍛 LUNCH:
-{chr(10).join([f"- {item}" for item in MENU['lunch']])}
-
-🌅 DINNER:
-{chr(10).join([f"- {item}" for item in MENU['dinner']])}
-
-🥤 BEVERAGES:
-{chr(10).join([f"- {item}" for item in MENU['beverages']])}
-
-📞 For prices, call {RESTAURANT_INFO['phone']}"""
-                        ]
+                        "text": [response_text]
                     }
                 }
             ]
