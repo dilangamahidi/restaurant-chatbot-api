@@ -5,6 +5,16 @@ import numpy as np
 from datetime import datetime
 import os
 import re
+import gspread
+from google.oauth2.service_account import Credentials
+import json
+
+SCOPES = [
+    'https://www.googleapis.com/auth/spreadsheets',
+    'https://www.googleapis.com/auth/drive'
+]
+
+SHEET_ID = "1QTaGoxeQur4Rh03tJETcRwExbmTvU1FF6TE1v0UjuMk/edit?gid=0#gid=0"
 
 app = Flask(__name__)
 CORS(app)
@@ -33,6 +43,84 @@ MENU = {
     "dinner": ["Fish Curry", "Chicken Curry", "Seafood Platter", "Vegetarian Curry"],
     "beverages": ["King Coconut", "Ceylon Tea", "Fresh Juices", "Local Beer"]
 }
+
+def init_google_sheets():
+    """Inizializza connessione a Google Sheets"""
+    try:
+        # Carica le credenziali
+        creds = Credentials.from_service_account_file('credentials.json', scopes=SCOPES)
+        client = gspread.authorize(creds)
+        
+        # Apri il foglio
+        sheet = client.open_by_key(SHEET_ID).sheet1
+        return sheet
+    except Exception as e:
+        print(f"❌ Errore Google Sheets: {e}")
+        return None
+
+def save_reservation_to_sheets(reservation_data):
+    """Salva prenotazione su Google Sheets"""
+    try:
+        sheet = init_google_sheets()
+        if not sheet:
+            print("❌ Impossibile connettersi a Google Sheets")
+            return False
+        
+        # Prepara i dati per il foglio
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        row_data = [
+            timestamp,
+            reservation_data['name'],
+            reservation_data['phone'],
+            reservation_data['email'],
+            reservation_data['guests'],
+            reservation_data['date'],
+            reservation_data['time'],
+            reservation_data['table'],
+            'Confirmed'
+        ]
+        
+        # Aggiungi la riga al foglio
+        sheet.append_row(row_data)
+        print(f"✅ Prenotazione salvata su Google Sheets: {reservation_data['name']}")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Errore salvando su Google Sheets: {e}")
+        return False
+
+def get_reservations_from_sheets():
+    """Recupera tutte le prenotazioni dal foglio"""
+    try:
+        sheet = init_google_sheets()
+        if not sheet:
+            return []
+        
+        # Ottieni tutti i record (saltando l'header)
+        records = sheet.get_all_records()
+        return records
+        
+    except Exception as e:
+        print(f"❌ Errore leggendo da Google Sheets: {e}")
+        return []
+
+def check_existing_reservation(name, phone, date, time):
+    """Controlla se esiste già una prenotazione identica"""
+    try:
+        reservations = get_reservations_from_sheets()
+        
+        for reservation in reservations:
+            if (reservation.get('Name', '').lower() == name.lower() and
+                reservation.get('Phone', '') == phone and
+                reservation.get('Date', '') == date and
+                reservation.get('Time', '') == time and
+                reservation.get('Status', '') == 'Confirmed'):
+                return True
+        return False
+        
+    except Exception as e:
+        print(f"❌ Errore controllo duplicati: {e}")
+        return False
 
 def convert_day_to_number(day_name):
     """Converte nome giorno in numero per ML"""
@@ -327,84 +415,32 @@ def handle_make_reservation(parameters):
         # 🔧 DEBUG - Stampa tutti i parametri ricevuti
         print(f"🔧 DEBUG - RAW PARAMETERS: {parameters}")
         
-        # Funzione helper migliorata per estrarre valori
         def extract_value(param):
             if isinstance(param, list):
                 return param[0] if param else None
             elif isinstance(param, dict):
-                # Se è un dict, cerca chiavi comuni come 'name', 'value', etc.
                 if 'name' in param:
                     return param['name']
                 elif 'value' in param:
                     return param['value']
                 elif len(param) == 1:
-                    # Se ha una sola chiave, prendi il valore
                     return list(param.values())[0]
                 else:
-                    # Se è un dict complesso, convertilo in stringa leggibile
                     return str(param)
             return param
         
-        # Funzione specifica per il nome che gestisce formati complessi
-        def extract_name(name_param):
-            if not name_param:
-                return ''
-            
-            # Se è già una stringa semplice
-            if isinstance(name_param, str):
-                return name_param.strip()
-            
-            # Se è una lista
-            if isinstance(name_param, list):
-                if len(name_param) > 0:
-                    return extract_name(name_param[0])
-                return ''
-            
-            # Se è un dizionario
-            if isinstance(name_param, dict):
-                # Cerca chiavi comuni per il nome
-                for key in ['name', 'given-name', 'first-name', 'value', 'text']:
-                    if key in name_param:
-                        result = name_param[key]
-                        if isinstance(result, str):
-                            return result.strip()
-                        elif isinstance(result, dict) and 'name' in result:
-                            return result['name'].strip()
-                
-                # Se nessuna chiave comune, prova a estrarre il primo valore stringa
-                for value in name_param.values():
-                    if isinstance(value, str) and value.strip():
-                        return value.strip()
-            
-            # Fallback: converti in stringa e pulisci
-            name_str = str(name_param)
-            # Rimuovi caratteri comuni di formattazione dict/list
-            import re
-            cleaned = re.sub(r"[{}\[\]'\":]", "", name_str)
-            cleaned = re.sub(r"\s+", " ", cleaned)  # Normalizza spazi
-            return cleaned.strip()
-        
-        # 🔧 DEBUG - Controlla ogni singolo parametro
-        print(f"🔧 DEBUG - name raw: {parameters.get('name')}")
-        print(f"🔧 DEBUG - name type: {type(parameters.get('name'))}")
-        
-        # Estrai dati personali con parsing migliorato
-        name = extract_name(parameters.get('name', ''))
+        # Estrai dati personali
+        name = extract_value(parameters.get('name', ''))
         phone = extract_value(parameters.get('phone_number', ''))
         email = extract_value(parameters.get('email', ''))
-        
-        # 🔧 DEBUG - Risultato parsing nome
-        print(f"🔧 DEBUG - name parsed: '{name}'")
         
         # Dati prenotazione
         guests = extract_value(parameters.get('guest_count', parameters.get('number', 2)))
         date = extract_value(parameters.get('day_of_week', parameters.get('date', '')))
         time = extract_value(parameters.get('hour_of_day', parameters.get('time', '')))
         
-        # 🔧 FORMATTA DATA E ORA (senza pulizia dati)
         formatted_date = format_date_readable(date) if date else date
         formatted_time = format_time_readable(time) if time else time
-        
         guest_count = int(guests) if guests else 2
         
         # Controlla parametri mancanti
@@ -424,17 +460,34 @@ def handle_make_reservation(parameters):
             missing_text = ", ".join(missing[:-1]) + f" and {missing[-1]}" if len(missing) > 1 else missing[0]
             return jsonify({'fulfillmentText': f"I need {missing_text} to complete your reservation."})
         
+        # 🆕 CONTROLLO DUPLICATI
+        if check_existing_reservation(name, phone, formatted_date, formatted_time):
+            return jsonify({
+                'fulfillmentText': f"⚠️ It looks like you already have a reservation for {formatted_date} at {formatted_time}. Please contact us if you need to modify it."
+            })
+        
         # Controlla disponibilità
         day_of_week, hour_of_day = parse_dialogflow_datetime(date, time)
-        print(f"🔧 DEBUG - PARSED: day_of_week={day_of_week}, hour_of_day={hour_of_day}")
-        
         result = find_available_table(guest_count, day_of_week, hour_of_day)
-        print(f"🔧 DEBUG - AVAILABILITY RESULT: {result}")
         
         if result['available']:
             table_num = result['table_number']
             
-            # Usa multiple messages invece di HTML
+            # 🆕 PREPARA DATI PER GOOGLE SHEETS
+            reservation_data = {
+                'name': name,
+                'phone': phone,
+                'email': email,
+                'guests': guest_count,
+                'date': formatted_date,
+                'time': formatted_time,
+                'table': table_num
+            }
+            
+            # 🆕 SALVA SU GOOGLE SHEETS
+            sheets_saved = save_reservation_to_sheets(reservation_data)
+            
+            # Prepara la risposta
             rich_response = {
                 "fulfillmentText": "🎉 Reservation Confirmed!",
                 "fulfillmentMessages": [
@@ -485,6 +538,15 @@ def handle_make_reservation(parameters):
                     }
                 ]
             }
+            
+            # 🆕 AGGIUNGI MESSAGGIO SE SHEETS NON FUNZIONA
+            if not sheets_saved:
+                rich_response["fulfillmentMessages"].append({
+                    "text": {
+                        "text": ["📝 Note: Reservation saved locally. Our staff will contact you to confirm."]
+                    }
+                })
+            
             return jsonify(rich_response)
             
         else:
@@ -496,6 +558,16 @@ def handle_make_reservation(parameters):
                         "text": {
                             "text": [f"😔 Sorry {name}, no tables are available for {guest_count} guests at that time."]
                         }
+                    },
+                    {
+                        "text": {
+                            "text": ["Would you like to try:\n• Different time on the same day?\n• Different date?"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": [f"Or call us at {RESTAURANT_INFO['phone']} for more options."]
+                        }
                     }
                 ]
             }
@@ -503,7 +575,6 @@ def handle_make_reservation(parameters):
             
     except Exception as e:
         print(f"🔧 ERROR in make_reservation: {e}")
-        print(f"🔧 ERROR type: {type(e)}")
         import traceback
         print(f"🔧 TRACEBACK: {traceback.format_exc()}")
         return jsonify({'fulfillmentText': f'Sorry, there was an error processing your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'})
