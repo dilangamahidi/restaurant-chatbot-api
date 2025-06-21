@@ -489,7 +489,7 @@ def format_time_readable(time_string):
         return str(time_string)
         
 def handle_make_reservation(parameters):
-    """Gestisce prenotazione completa con controlli robusti"""
+    """Gestisce prenotazione completa con controlli robusti - MULTIPLE MESSAGES"""
     try:
         print(f"🔧 DEBUG - RAW PARAMETERS: {parameters}")
         
@@ -574,34 +574,95 @@ def handle_make_reservation(parameters):
                 print(f"❌ Error saving to sheets: {e}")
                 sheets_saved = False
             
-            # Risposta di successo
-            success_message = f"🎉 Reservation Confirmed!\n\n"
-            success_message += f"👤 Name: {name}\n"
-            success_message += f"📞 Phone: {phone}\n"
-            success_message += f"📧 Email: {email}\n"
-            success_message += f"👥 Guests: {guest_count}\n"
-            success_message += f"📅 Date: {formatted_date}\n"
-            success_message += f"🕐 Time: {formatted_time}\n"
-            success_message += f"🪑 Table: {table_num}\n\n"
-            success_message += "✅ Your reservation is confirmed!"
+            # 🆕 TORNA AL FORMATO ORIGINALE CON MULTIPLE MESSAGES
+            rich_response = {
+                "fulfillmentText": "🎉 Reservation Confirmed!",
+                "fulfillmentMessages": [
+                    {
+                        "text": {
+                            "text": ["🎉 Reservation Confirmed!"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": [f"👤 Name: {name}"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": [f"📞 Phone: {phone}"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": [f"📧 Email: {email}"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": [f"👥 Number of guests: {guest_count}"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": [f"📅 Date: {formatted_date}"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": [f"🕐 Time: {formatted_time}"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": [f"🪑 Table assigned: {table_num}"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": ["✅ Your reservation is confirmed!"]
+                        }
+                    }
+                ]
+            }
             
+            # Aggiungi messaggio se sheets non funziona
             if not sheets_saved:
-                success_message += "\n\n📝 Note: Our staff will contact you to confirm details."
+                rich_response["fulfillmentMessages"].append({
+                    "text": {
+                        "text": ["📝 Note: Our staff will contact you to confirm details."]
+                    }
+                })
             
-            return jsonify({'fulfillmentText': success_message})
+            return jsonify(rich_response)
             
         else:
-            # Nessuna disponibilità
-            no_availability_message = f"😔 Sorry {name}, no tables are available for {guest_count} guests on {formatted_date} at {formatted_time}.\n\n"
-            no_availability_message += "Would you like to try:\n"
-            no_availability_message += "• A different time on the same day?\n"
-            no_availability_message += "• A different date?\n\n"
-            no_availability_message += f"Or call us at {RESTAURANT_INFO['phone']} for more options."
-            
-            return jsonify({'fulfillmentText': no_availability_message})
+            # Nessuna disponibilità - MULTIPLE MESSAGES
+            rich_response = {
+                "fulfillmentText": f"😔 Sorry {name}, no tables available",
+                "fulfillmentMessages": [
+                    {
+                        "text": {
+                            "text": [f"😔 Sorry {name}, no tables are available for {guest_count} guests at that time."]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": ["Would you like to try:\n• Different time on the same day?\n• Different date?"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": [f"Or call us at {RESTAURANT_INFO['phone']} for more options."]
+                        }
+                    }
+                ]
+            }
+            return jsonify(rich_response)
             
     except Exception as e:
         print(f"❌ CRITICAL ERROR in make_reservation: {e}")
+        import traceback
         print(f"❌ TRACEBACK: {traceback.format_exc()}")
         
         # Messaggio di errore più specifico
