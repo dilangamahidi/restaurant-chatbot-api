@@ -587,14 +587,100 @@ def handle_make_reservation(parameters):
         name = extract_value(parameters.get('name', parameters.get('person', '')))
         phone = extract_value(parameters.get('phone_number', parameters.get('phone', '')))
         email = extract_value(parameters.get('email', ''))
-        guests = extract_value(parameters.get('guest_count', parameters.get('number', parameters.get('guests', 2))))
+        
+        # 🔧 MIGLIORA ESTRAZIONE NUMERO OSPITI
+        # Prova tutte le possibili chiavi per il numero di ospiti
+        guests_raw = None
+        possible_guest_keys = ['guest_count', 'guests', 'number', 'people', 'party_size', 'num_guests']
+        
+        for key in possible_guest_keys:
+            if key in parameters and parameters[key]:
+                guests_raw = parameters[key]
+                print(f"🔧 DEBUG - Found guests in key '{key}': {guests_raw}")
+                break
+        
+        if not guests_raw:
+            print(f"🔧 DEBUG - No guests found, trying extract_value on all keys")
+            for key in possible_guest_keys:
+                extracted = extract_value(parameters.get(key, ''))
+                if extracted:
+                    guests_raw = extracted
+                    print(f"🔧 DEBUG - Extracted guests from '{key}': {guests_raw}")
+                    break
+        
+        # Se ancora non trovato, usa default
+        if not guests_raw:
+            guests_raw = 2
+            print(f"🔧 DEBUG - Using default guests: {guests_raw}")
+        
+        guests = extract_value(guests_raw)
+        
         date = extract_value(parameters.get('day_of_week', parameters.get('date', '')))
         time = extract_value(parameters.get('hour_of_day', parameters.get('time', '')))
         
         print(f"🔧 DEBUG - Extracted: name={name}, phone={phone}, email={email}, guests={guests}, date={date}, time={time}")
         
-        # Valida tutti i parametri
-        validation_errors = validate_reservation_params(name, phone, email, date, time, guests)
+        # 🔧 MIGLIORA CONVERSIONE NUMERO OSPITI
+        try:
+            if guests is None or guests == '':
+                guest_count = 2  # Default
+                print(f"🔧 DEBUG - Using default guest count: {guest_count}")
+            else:
+                # Prova a convertire, gestendo vari formati
+                guest_str = str(guests).strip().lower()
+                
+                # Rimuovi parole comuni
+                guest_str = guest_str.replace('guests', '').replace('people', '').replace('persons', '').strip()
+                
+                # Converti parole in numeri
+                word_to_num = {
+                    'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+                    'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10
+                }
+                
+                if guest_str in word_to_num:
+                    guest_count = word_to_num[guest_str]
+                else:
+                    guest_count = int(float(guest_str))  # Gestisce anche numeri decimali
+                
+                print(f"🔧 DEBUG - Converted guest count: {guest_count}")
+                
+        except (ValueError, TypeError) as e:
+            print(f"🔧 DEBUG - Error converting guests '{guests}': {e}")
+            guest_count = 2  # Fallback
+        
+        # Valida range ospiti
+        if guest_count < 1 or guest_count > 20:
+            return jsonify({
+                'fulfillmentText': f"I can accommodate between 1 and 20 guests. You requested {guest_count} guests. Please specify a number between 1 and 20."
+            })
+        
+        # Valida gli altri parametri (escludi guests dalla validazione dato che l'abbiamo già gestito)
+        validation_errors = []
+        
+        # Nome
+        if not name or len(str(name).strip()) < 2:
+            validation_errors.append("a valid full name (at least 2 characters)")
+        
+        # Telefono
+        if not phone:
+            validation_errors.append("your phone number")
+        elif not re.match(r'^[\d\s\-\+\(\)]+$', str(phone)):
+            validation_errors.append("a valid phone number")
+        
+        # Email
+        if not email:
+            validation_errors.append("your email address")
+        elif not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', str(email)):
+            validation_errors.append("a valid email address")
+        
+        # Data
+        if not date:
+            validation_errors.append("the reservation date")
+        
+        # Ora
+        if not time:
+            validation_errors.append("the reservation time")
         
         if validation_errors:
             if len(validation_errors) == 1:
@@ -607,12 +693,6 @@ def handle_make_reservation(parameters):
             return jsonify({
                 'fulfillmentText': f"I need {error_text} to complete your reservation. Please provide the missing information."
             })
-        
-        # Converti ospiti in numero
-        try:
-            guest_count = int(guests)
-        except (ValueError, TypeError):
-            guest_count = 2
         
         # Formatta data e ora
         try:
@@ -664,7 +744,7 @@ def handle_make_reservation(parameters):
                 print(f"❌ Error saving to sheets: {e}")
                 sheets_saved = False
             
-            # 🆕 TORNA AL FORMATO ORIGINALE CON MULTIPLE MESSAGES
+            # Risposta di successo con multiple messages
             rich_response = {
                 "fulfillmentText": "🎉 Reservation Confirmed!",
                 "fulfillmentMessages": [
