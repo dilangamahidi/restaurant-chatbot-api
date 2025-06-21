@@ -50,53 +50,22 @@ def extract_value(param):
         if param is None or param == '':
             return None
         elif isinstance(param, list):
-            # Se è una lista, prendi il primo elemento e processalo ricorsivamente
-            if param and len(param) > 0:
-                return extract_value(param[0])
-            else:
-                return None
+            return param[0] if param and param[0] not in ['', None] else None
         elif isinstance(param, dict):
-            # Controlla diversi possibili campi nel dizionario
             if 'name' in param and param['name']:
-                return str(param['name']).strip()
+                return param['name']
             elif 'value' in param and param['value']:
-                return str(param['value']).strip()
-            elif 'text' in param and param['text']:
-                return str(param['text']).strip()
-            elif 'displayName' in param and param['displayName']:
-                return str(param['displayName']).strip()
-            # Se il dizionario ha un solo valore, prendilo
+                return param['value']
             elif len(param) == 1:
                 value = list(param.values())[0]
-                if value not in ['', None, 'null']:
-                    return str(value).strip()
-                else:
-                    return None
+                return value if value not in ['', None] else None
             else:
-                # Se nessun campo standard, converti tutto il dizionario in stringa
-                # ma solo se non è vuoto
-                non_empty_values = [v for v in param.values() if v not in ['', None, 'null']]
-                if non_empty_values:
-                    return str(non_empty_values[0]).strip()
-                else:
-                    return None
+                return str(param) if param else None
         else:
-            # È già una stringa o un numero
-            result = str(param).strip()
-            return result if result not in ['', 'None', 'null'] else None
+            return str(param).strip() if str(param).strip() not in ['', 'None', 'null'] else None
     except Exception as e:
-        print(f"❌ Error in extract_value with param {param}: {e}")
-        # Fallback: prova a convertire direttamente in stringa
-        try:
-            if param:
-                result = str(param).strip()
-                # Rimuovi eventuali caratteri di formattazione JSON
-                result = result.replace("{'name': '", "").replace("'}", "").replace('"', '')
-                return result if result not in ['', 'None', 'null'] else None
-        except:
-            pass
+        print(f"❌ Error in extract_value: {e}")
         return None
-
 def validate_reservation_params(name, phone, email, date, time, guests):
     """Valida tutti i parametri di prenotazione"""
     errors = []
