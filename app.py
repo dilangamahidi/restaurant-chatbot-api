@@ -334,15 +334,34 @@ def parse_dialogflow_datetime(date_param, time_param):
 def handle_make_reservation(parameters):
     """Gestisce prenotazione completa - MULTIPLE MESSAGES"""
     try:
+        # 🔧 DEBUG - Stampa tutti i parametri ricevuti
+        print(f"🔧 DEBUG - RAW PARAMETERS: {parameters}")
+        
         # Estrai tutti i parametri
         def extract_value(param):
             if isinstance(param, list):
                 return param[0] if param else None
             return param
         
+        # 🔧 DEBUG - Controlla ogni singolo parametro
+        print(f"🔧 DEBUG - person: {parameters.get('person')}")
+        print(f"🔧 DEBUG - phone_number: {parameters.get('phone_number')}")
+        print(f"🔧 DEBUG - email: {parameters.get('email')}")
+        print(f"🔧 DEBUG - guest_count: {parameters.get('guest_count')}")
+        print(f"🔧 DEBUG - day_of_week: {parameters.get('day_of_week')}")
+        print(f"🔧 DEBUG - hour_of_day: {parameters.get('hour_of_day')}")
+        
         # Dati personali
         person_data = parameters.get('person', {})
-        name = extract_value(person_data.get('name', '')) if person_data else extract_value(parameters.get('person', ''))
+        
+        # 🔧 Prova diverse varianti per il nome
+        if isinstance(person_data, dict):
+            name = extract_value(person_data.get('name', ''))
+        elif isinstance(person_data, str):
+            name = person_data
+        else:
+            name = extract_value(parameters.get('person', ''))
+            
         phone = extract_value(parameters.get('phone_number', ''))
         email = extract_value(parameters.get('email', ''))
         
@@ -350,6 +369,15 @@ def handle_make_reservation(parameters):
         guests = extract_value(parameters.get('guest_count', parameters.get('number', 2)))
         date = extract_value(parameters.get('day_of_week', parameters.get('date', '')))
         time = extract_value(parameters.get('hour_of_day', parameters.get('time', '')))
+        
+        # 🔧 DEBUG - Valori estratti
+        print(f"🔧 DEBUG - EXTRACTED VALUES:")
+        print(f"   name: '{name}'")
+        print(f"   phone: '{phone}'")
+        print(f"   email: '{email}'")
+        print(f"   guests: '{guests}'")
+        print(f"   date: '{date}'")
+        print(f"   time: '{time}'")
         
         guest_count = int(guests) if guests else 2
         
@@ -367,15 +395,15 @@ def handle_make_reservation(parameters):
             missing.append("the time")
             
         if missing:
-            if len(missing) == 1:
-                return jsonify({'fulfillmentText': f"I need {missing[0]} to complete your reservation."})
-            else:
-                missing_text = ", ".join(missing[:-1]) + f" and {missing[-1]}"
-                return jsonify({'fulfillmentText': f"I need {missing_text} to complete your reservation."})
+            missing_text = ", ".join(missing[:-1]) + f" and {missing[-1]}" if len(missing) > 1 else missing[0]
+            return jsonify({'fulfillmentText': f"I need {missing_text} to complete your reservation."})
         
         # Controlla disponibilità
         day_of_week, hour_of_day = parse_dialogflow_datetime(date, time)
+        print(f"🔧 DEBUG - PARSED: day_of_week={day_of_week}, hour_of_day={hour_of_day}")
+        
         result = find_available_table(guest_count, day_of_week, hour_of_day)
+        print(f"🔧 DEBUG - AVAILABILITY RESULT: {result}")
         
         if result['available']:
             table_num = result['table_number']
@@ -448,7 +476,10 @@ def handle_make_reservation(parameters):
             return jsonify(rich_response)
             
     except Exception as e:
-        print(f"Error in make_reservation: {e}")
+        print(f"🔧 ERROR in make_reservation: {e}")
+        print(f"🔧 ERROR type: {type(e)}")
+        import traceback
+        print(f"🔧 TRACEBACK: {traceback.format_exc()}")
         return jsonify({'fulfillmentText': f'Sorry, there was an error processing your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'})
         
 def handle_show_menu(parameters):
