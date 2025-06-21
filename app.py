@@ -252,9 +252,9 @@ def handle_check_table_specific(parameters):
         is_available = check_table_availability(table_num, 4, day_of_week, hour_of_day)
         
         if is_available:
-            response_text = f"✅ Good news! Table {table_num} is available on {date} at {time}. Would you like to make a reservation for this table?"
+            response_text = f"✅ Good news! Table {table_num} is available!"
         else:
-            response_text = f"😔 Sorry, table {table_num} is already reserved on {date} at {time}. Would you like me to check other available tables for that time?"
+            response_text = f"😔 Sorry, table {table_num} is already reserved at that time."
             
         return jsonify({'fulfillmentText': response_text})
         
@@ -294,7 +294,7 @@ def handle_check_availability(parameters):
             table_num = result['table_number']
             response_text = f"✅ Great! Table {table_num} is available for {guest_count} guests! I made the reservation!"
         else:
-            response_text = f"😔 Sorry, no tables available for {guest_count} guests at that time. Would you like to try a different time?"
+            response_text = f"😔 Sorry, no tables available for {guest_count} guests at that time."
             
         return jsonify({'fulfillmentText': response_text})
         
@@ -449,35 +449,106 @@ def handle_show_menu(parameters):
         return jsonify(rich_response)
 
 def handle_opening_hours():
-    """Gestisce orari apertura - VERSIONE FORMATTATA"""
-    response_text = f"🕐 {RESTAURANT_INFO['name']} Opening Hours:"
-    response_text += "<br><br>"
-    response_text += "📅 <strong>Monday - Saturday:</strong> 09:00 AM - 09:00 PM<br>"
-    response_text += "📅 <strong>Sunday:</strong> 10:00 AM - 08:00 PM<br><br>"
-    response_text += f"📞 For reservations: {RESTAURANT_INFO['phone']}"
-    
-    return jsonify({'fulfillmentText': response_text})
+    """Gestisce orari apertura - MULTIPLE MESSAGES"""
+    rich_response = {
+        "fulfillmentText": f"🕐 {RESTAURANT_INFO['name']} Opening Hours:",
+        "fulfillmentMessages": [
+            {
+                "text": {
+                    "text": [f"🕐 {RESTAURANT_INFO['name']} Opening Hours:"]
+                }
+            },
+            {
+                "text": {
+                    "text": ["📅 Monday - Saturday:\n09:00 AM - 09:00 PM"]
+                }
+            },
+            {
+                "text": {
+                    "text": ["📅 Sunday:\n10:00 AM - 08:00 PM"]
+                }
+            },
+            {
+                "text": {
+                    "text": [f"📞 For reservations: {RESTAURANT_INFO['phone']}"]
+                }
+            }
+        ]
+    }
+    return jsonify(rich_response)
 
 def handle_restaurant_info():
-    """Gestisce info ristorante - VERSIONE FORMATTATA"""
-    response_text = f"🍽️ <strong>{RESTAURANT_INFO['name']}</strong><br>"
-    response_text += f"<em>{RESTAURANT_INFO['description']}</em><br><br>"
-    response_text += f"📍 <strong>Address:</strong> {RESTAURANT_INFO['address']}<br>"
-    response_text += f"📞 <strong>Phone:</strong> {RESTAURANT_INFO['phone']}<br>"
-    response_text += f"📧 <strong>Email:</strong> {RESTAURANT_INFO['email']}<br><br>"
-    response_text += "🕐 <strong>Hours:</strong> Mon-Sat 9AM-9PM, Sun 10AM-8PM"
+    """Gestisce info ristorante - MULTIPLE MESSAGES"""
+    rich_response = {
+        "fulfillmentText": f"🍽️ {RESTAURANT_INFO['name']}",
+        "fulfillmentMessages": [
+            {
+                "text": {
+                    "text": [f"🍽️ {RESTAURANT_INFO['name']}"]
+                }
+            },
+            {
+                "text": {
+                    "text": [f"{RESTAURANT_INFO['description']}"]
+                }
+            },
+            {
+                "text": {
+                    "text": [f"📍 Address:\n{RESTAURANT_INFO['address']}"]
+                }
+            },
+            {
+                "text": {
+                    "text": [f"📞 Phone:\n{RESTAURANT_INFO['phone']}"]
+                }
+            },
+            {
+                "text": {
+                    "text": [f"📧 Email:\n{RESTAURANT_INFO['email']}"]
+                }
+            },
+            {
+                "text": {
+                    "text": ["🕐 Hours:\nMon-Sat 9AM-9PM\nSun 10AM-8PM"]
+                }
+            }
+        ]
+    }
+    return jsonify(rich_response)
     
-    return jsonify({'fulfillmentText': response_text})
-
 def handle_contact_human():
-    """Gestisce contatto umano - VERSIONE FORMATTATA"""
-    response_text = f"👨‍💼 <strong>Contact our staff:</strong><br><br>"
-    response_text += f"📞 <strong>Call:</strong> {RESTAURANT_INFO['phone']}<br>"
-    response_text += f"📧 <strong>Email:</strong> {RESTAURANT_INFO['email']}<br>"
-    response_text += f"📍 <strong>Visit:</strong> {RESTAURANT_INFO['address']}<br><br>"
-    response_text += "<strong>Available:</strong> Mon-Sat 9AM-9PM, Sun 10AM-8PM"
-    
-    return jsonify({'fulfillmentText': response_text})
+    """Gestisce contatto umano - MULTIPLE MESSAGES"""
+    rich_response = {
+        "fulfillmentText": "👨‍💼 Contact our staff:",
+        "fulfillmentMessages": [
+            {
+                "text": {
+                    "text": ["👨‍💼 Contact our staff:"]
+                }
+            },
+            {
+                "text": {
+                    "text": [f"📞 Call:\n{RESTAURANT_INFO['phone']}"]
+                }
+            },
+            {
+                "text": {
+                    "text": [f"📧 Email:\n{RESTAURANT_INFO['email']}"]
+                }
+            },
+            {
+                "text": {
+                    "text": [f"📍 Visit us at:\n{RESTAURANT_INFO['address']}"]
+                }
+            },
+            {
+                "text": {
+                    "text": ["Available:\nMon-Sat 9AM-9PM\nSun 10AM-8PM"]
+                }
+            }
+        ]
+    }
+    return jsonify(rich_response)
 
 # Test endpoint
 @app.route('/test')
