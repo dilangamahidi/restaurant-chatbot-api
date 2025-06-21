@@ -50,59 +50,46 @@ def extract_value(param):
         if param is None or param == '':
             return None
         elif isinstance(param, list):
-            return param[0] if param and param[0] not in ['', None] else None
-        elif isinstance(param, dict):
-            if 'name' in param and param['name']:
-                return param['name']
-            elif 'value' in param and param['value']:
-                return param['value']
-            elif len(param) == 1:
-                value = list(param.values())[0]
-                return value if value not in ['', None] else None
+            # Se è una lista, prendi il primo elemento
+            first_item = param[0] if param and len(param) > 0 else None
+            if isinstance(first_item, dict):
+                # Se il primo elemento è un dizionario, estrai il valore
+                if 'name' in first_item and first_item['name']:
+                    return str(first_item['name']).strip()
+                elif 'value' in first_item and first_item['value']:
+                    return str(first_item['value']).strip()
+                else:
+                    # Prendi il primo valore non vuoto del dizionario
+                    for value in first_item.values():
+                        if value and str(value).strip():
+                            return str(value).strip()
+                    return None
             else:
-                return str(param) if param else None
+                return str(first_item).strip() if first_item not in ['', None] else None
+        elif isinstance(param, dict):
+            # Se è un dizionario, cerca nelle chiavi comuni
+            if 'name' in param and param['name']:
+                return str(param['name']).strip()
+            elif 'value' in param and param['value']:
+                return str(param['value']).strip()
+            elif len(param) == 1:
+                # Se ha una sola chiave, prendi quel valore
+                value = list(param.values())[0]
+                return str(value).strip() if value not in ['', None] else None
+            else:
+                # Prendi il primo valore non vuoto
+                for value in param.values():
+                    if value and str(value).strip():
+                        return str(value).strip()
+                return None
         else:
-            return str(param).strip() if str(param).strip() not in ['', 'None', 'null'] else None
+            # Se è una stringa o altro tipo
+            clean_value = str(param).strip()
+            return clean_value if clean_value not in ['', 'None', 'null'] else None
     except Exception as e:
         print(f"❌ Error in extract_value: {e}")
+        print(f"❌ Param type: {type(param)}, value: {param}")
         return None
-def validate_reservation_params(name, phone, email, date, time, guests):
-    """Valida tutti i parametri di prenotazione"""
-    errors = []
-    
-    # Nome
-    if not name or len(str(name).strip()) < 2:
-        errors.append("a valid full name (at least 2 characters)")
-    
-    # Telefono
-    if not phone:
-        errors.append("your phone number")
-    elif not re.match(r'^[\d\s\-\+\(\)]+$', str(phone)):
-        errors.append("a valid phone number")
-    
-    # Email
-    if not email:
-        errors.append("your email address")
-    elif not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', str(email)):
-        errors.append("a valid email address")
-    
-    # Data
-    if not date:
-        errors.append("the reservation date")
-    
-    # Ora
-    if not time:
-        errors.append("the reservation time")
-    
-    # Ospiti
-    try:
-        guest_count = int(guests) if guests else 0
-        if guest_count < 1 or guest_count > 20:
-            errors.append("number of guests (1-20)")
-    except (ValueError, TypeError):
-        errors.append("a valid number of guests")
-    
-    return errors
 
 def init_google_sheets():
     """Inizializza connessione a Google Sheets"""
@@ -344,11 +331,6 @@ def handle_check_table_specific(parameters):
     try:
         # 🔧 AGGIUNGI QUESTA LINEA PER DEBUG
         print(f"DEBUG - Raw parameters: {parameters}")
-        
-        def extract_value(param):
-            if isinstance(param, list):
-                return param[0] if param else None
-            return param
         
         # Estrai parametri
         table_raw = parameters.get('table_number', parameters.get('number', ''))
