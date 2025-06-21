@@ -400,31 +400,74 @@ def dialogflow_webhook():
 def handle_check_table_specific(parameters):
     """Gestisce controllo tavolo specifico"""
     try:
-        # 🔧 AGGIUNGI QUESTA LINEA PER DEBUG
-        print(f"DEBUG - Raw parameters: {parameters}")
+        print(f"🔧 DEBUG - Raw parameters: {parameters}")
         
-        # Estrai parametri
-        table_raw = parameters.get('table_number', parameters.get('number', ''))
+        # 🔧 MIGLIORA ESTRAZIONE NUMERO TAVOLO
+        # Prova tutte le possibili chiavi per il numero del tavolo
+        table_raw = None
+        possible_table_keys = ['table_number', 'number', 'table', 'table_num', 'num']
+        
+        for key in possible_table_keys:
+            if key in parameters and parameters[key]:
+                table_raw = parameters[key]
+                print(f"🔧 DEBUG - Found table in key '{key}': {table_raw}")
+                break
+        
+        if not table_raw:
+            print(f"🔧 DEBUG - No table found, trying extract_value on all keys")
+            for key in possible_table_keys:
+                extracted = extract_value(parameters.get(key, ''))
+                if extracted:
+                    table_raw = extracted
+                    print(f"🔧 DEBUG - Extracted table from '{key}': {table_raw}")
+                    break
+        
+        # Estrai anche date e time
         date_raw = parameters.get('date', parameters.get('day_of_week', ''))
         time_raw = parameters.get('time', parameters.get('hour_of_day', ''))
         
-        # 🔧 AGGIUNGI ANCHE QUESTO
-        print(f"DEBUG - Extracted raw: table={table_raw}, date={date_raw}, time={time_raw}")
+        print(f"🔧 DEBUG - Extracted raw: table={table_raw}, date={date_raw}, time={time_raw}")
         
+        # Estrai valori con extract_value
         table_number = extract_value(table_raw)
         date = extract_value(date_raw)
         time = extract_value(time_raw)
         
-        # 🔧 E QUESTO
-        print(f"DEBUG - Final values: table={table_number}, date={date}, time={time}")
+        print(f"🔧 DEBUG - Final values: table={table_number}, date={date}, time={time}")
         
-        # Valida table number
+        # 🔧 MIGLIORA CONVERSIONE NUMERO TAVOLO
         try:
-            table_num = int(table_number) if table_number else None
-            if not table_num or table_num < 1 or table_num > 20:
+            if table_number is None or table_number == '':
+                return jsonify({'fulfillmentText': "Please specify which table number you'd like to check (1-20)."})
+            
+            # Converti, gestendo vari formati
+            table_str = str(table_number).strip().lower()
+            
+            # Rimuovi parole comuni
+            table_str = table_str.replace('table', '').replace('number', '').replace('#', '').strip()
+            
+            # Converti parole in numeri se necessario
+            word_to_num = {
+                'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+                'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+                'eleven': 11, 'twelve': 12, 'thirteen': 13, 'fourteen': 14, 'fifteen': 15,
+                'sixteen': 16, 'seventeen': 17, 'eighteen': 18, 'nineteen': 19, 'twenty': 20
+            }
+            
+            if table_str in word_to_num:
+                table_num = word_to_num[table_str]
+            else:
+                table_num = int(float(table_str))  # Gestisce anche numeri decimali
+            
+            print(f"🔧 DEBUG - Converted table number: {table_num}")
+            
+            # Valida range tavolo
+            if table_num < 1 or table_num > 20:
                 return jsonify({'fulfillmentText': "Please specify a table number between 1 and 20."})
-        except ValueError:
-            return jsonify({'fulfillmentText': "Please provide a valid table number."})
+                
+        except (ValueError, TypeError) as e:
+            print(f"🔧 DEBUG - Error converting table '{table_number}': {e}")
+            return jsonify({'fulfillmentText': "Please provide a valid table number (1-20)."})
         
         # Controlla parametri mancanti
         missing = []
@@ -440,18 +483,33 @@ def handle_check_table_specific(parameters):
         # Converti date/time per ML
         day_of_week, hour_of_day = parse_dialogflow_datetime(date, time)
         
+        print(f"🔧 DEBUG - ML input: table={table_num}, guests=4, day={day_of_week}, hour={hour_of_day}")
+        
         # Controlla tavolo specifico (usando guest_count=4 come default per il check)
         is_available = check_table_availability(table_num, 4, day_of_week, hour_of_day)
         
+        print(f"🔧 DEBUG - Table {table_num} availability: {is_available}")
+        
+        # Formatta data e ora per la risposta
+        try:
+            formatted_date = format_date_readable(date)
+            formatted_time = format_time_readable(time)
+        except Exception as e:
+            print(f"❌ Error formatting date/time: {e}")
+            formatted_date = str(date)
+            formatted_time = str(time)
+        
         if is_available:
-            response_text = f"✅ Good news! Table {table_num} is available!"
+            response_text = f"✅ Good news! Table {table_num} is available on {formatted_date} at {formatted_time}!"
         else:
-            response_text = f"😔 Sorry, table {table_num} is already reserved at that time."
+            response_text = f"😔 Sorry, table {table_num} is already reserved on {formatted_date} at {formatted_time}."
             
         return jsonify({'fulfillmentText': response_text})
         
     except Exception as e:
-        print(f"Error in check_table_specific: {e}")
+        print(f"❌ Error in check_table_specific: {e}")
+        import traceback
+        print(f"❌ TRACEBACK: {traceback.format_exc()}")
         return jsonify({'fulfillmentText': 'Sorry, error checking table availability. Please call us.'})
 
 def parse_dialogflow_datetime(date_param, time_param):
