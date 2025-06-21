@@ -45,6 +45,351 @@ MENU = {
     "beverages": ["King Coconut", "Ceylon Tea", "Fresh Juices", "Local Beer"]
 }
 
+def get_user_reservations(phone_number):
+    """Recupera tutte le prenotazioni attive di un utente per telefono"""
+    try:
+        reservations = get_reservations_from_sheets()
+        user_reservations = []
+        
+        for reservation in reservations:
+            if (reservation.get('Phone', '').strip() == str(phone_number).strip() and 
+                reservation.get('Status', '') == 'Confirmed'):
+                user_reservations.append(reservation)
+        
+        return user_reservations
+        
+    except Exception as e:
+        print(f"❌ Error getting user reservations: {e}")
+        return []
+
+def update_reservation_status(phone, date, time, new_status):
+    """Aggiorna lo status di una prenotazione specifica"""
+    try:
+        sheet = init_google_sheets()
+        if not sheet:
+            return False
+        
+        # Ottieni tutti i dati
+        all_values = sheet.get_all_values()
+        
+        # Trova la riga da aggiornare
+        for i, row in enumerate(all_values):
+            if (len(row) >= 9 and 
+                row[2].strip() == str(phone).strip() and  # Phone column
+                row[5].strip() == str(date).strip() and   # Date column  
+                row[6].strip() == str(time).strip() and   # Time column
+                row[8].strip() == 'Confirmed'):           # Status column
+                
+                # Aggiorna lo status (colonna 9, indice 8)
+                sheet.update_cell(i + 1, 9, new_status)
+                print(f"✅ Reservation status updated to '{new_status}' for {phone}")
+                return True
+        
+        print(f"❌ Reservation not found for phone {phone}")
+        return False
+        
+    except Exception as e:
+        print(f"❌ Error updating reservation status: {e}")
+        return False
+
+def handle_modify_reservation(parameters):
+    """Gestisce richiesta di modifica prenotazione"""
+    try:
+        print(f"🔧 DEBUG - Modify reservation parameters: {parameters}")
+        
+        # Estrai numero di telefono
+        phone_raw = parameters.get('phone_number', parameters.get('phone', ''))
+        phone = extract_value(phone_raw)
+        
+        print(f"🔧 DEBUG - Extracted phone: {phone}")
+        
+        if not phone:
+            return jsonify({
+                'fulfillmentText': "Please provide your phone number to find your reservation."
+            })
+        
+        # Cerca prenotazioni dell'utente
+        user_reservations = get_user_reservations(phone)
+        
+        if not user_reservations:
+            return jsonify({
+                'fulfillmentText': f"I couldn't find any active reservations for phone number {phone}. Please check the number or call us at {RESTAURANT_INFO['phone']}."
+            })
+        
+        if len(user_reservations) == 1:
+            # Una sola prenotazione - mostra dettagli
+            reservation = user_reservations[0]
+            
+            rich_response = {
+                "fulfillmentText": "Reservation found - Contact us to modify",
+                "fulfillmentMessages": [
+                    {
+                        "text": {
+                            "text": ["📋 Your current reservation:"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": [f"👤 Name: {reservation.get('Name', '')}"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": [f"👥 Guests: {reservation.get('Guests', '')}"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": [f"📅 Date: {reservation.get('Date', '')}"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": [f"🕐 Time: {reservation.get('Time', '')}"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": [f"🪑 Table: {reservation.get('Table', '')}"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": [f"📞 To modify this reservation, please call us at {RESTAURANT_INFO['phone']} or email {RESTAURANT_INFO['email']}"]
+                        }
+                    }
+                ]
+            }
+            return jsonify(rich_response)
+            
+        else:
+            # Multiple prenotazioni - mostra lista
+            reservation_list = "📋 Your active reservations:\n\n"
+            for i, reservation in enumerate(user_reservations, 1):
+                reservation_list += f"{i}. {reservation.get('Date', '')} at {reservation.get('Time', '')} - {reservation.get('Guests', '')} guests\n"
+            
+            reservation_list += f"\n📞 To modify any reservation, please call us at {RESTAURANT_INFO['phone']} with the specific details."
+            
+            return jsonify({'fulfillmentText': reservation_list})
+            
+    except Exception as e:
+        print(f"❌ Error in modify_reservation: {e}")
+        return jsonify({'fulfillmentText': f'Sorry, error finding your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'})
+
+def handle_cancel_reservation(parameters):
+    """Gestisce richiesta di cancellazione prenotazione"""
+    try:
+        print(f"🔧 DEBUG - Cancel reservation parameters: {parameters}")
+        
+        # Estrai numero di telefono
+        phone_raw = parameters.get('phone_number', parameters.get('phone', ''))
+        phone = extract_value(phone_raw)
+        
+        print(f"🔧 DEBUG - Extracted phone: {phone}")
+        
+        if not phone:
+            return jsonify({
+                'fulfillmentText': "Please provide your phone number to find your reservation to cancel."
+            })
+        
+        # Cerca prenotazioni dell'utente
+        user_reservations = get_user_reservations(phone)
+        
+        if not user_reservations:
+            return jsonify({
+                'fulfillmentText': f"I couldn't find any active reservations for phone number {phone}. Please check the number or call us at {RESTAURANT_INFO['phone']}."
+            })
+        
+        if len(user_reservations) == 1:
+            # Una sola prenotazione - cancella automaticamente
+            reservation = user_reservations[0]
+            
+            # Aggiorna status a "Cancelled"
+            success = update_reservation_status(
+                phone, 
+                reservation.get('Date', ''), 
+                reservation.get('Time', ''), 
+                'Cancelled'
+            )
+            
+            if success:
+                rich_response = {
+                    "fulfillmentText": "✅ Reservation cancelled successfully!",
+                    "fulfillmentMessages": [
+                        {
+                            "text": {
+                                "text": ["✅ Reservation cancelled successfully!"]
+                            }
+                        },
+                        {
+                            "text": {
+                                "text": ["📋 Cancelled reservation details:"]
+                            }
+                        },
+                        {
+                            "text": {
+                                "text": [f"👤 Name: {reservation.get('Name', '')}"]
+                            }
+                        },
+                        {
+                            "text": {
+                                "text": [f"📅 Date: {reservation.get('Date', '')}"]
+                            }
+                        },
+                        {
+                            "text": {
+                                "text": [f"🕐 Time: {reservation.get('Time', '')}"]
+                            }
+                        },
+                        {
+                            "text": {
+                                "text": [f"👥 Guests: {reservation.get('Guests', '')}"]
+                            }
+                        },
+                        {
+                            "text": {
+                                "text": ["💔 We're sorry to see you cancel. We hope to see you again soon!"]
+                            }
+                        }
+                    ]
+                }
+                return jsonify(rich_response)
+            else:
+                return jsonify({
+                    'fulfillmentText': f"Sorry, there was an issue cancelling your reservation. Please call us at {RESTAURANT_INFO['phone']}."
+                })
+                
+        else:
+            # Multiple prenotazioni - mostra lista per scelta manuale
+            reservation_list = "📋 Your active reservations:\n\n"
+            for i, reservation in enumerate(user_reservations, 1):
+                reservation_list += f"{i}. {reservation.get('Date', '')} at {reservation.get('Time', '')} - {reservation.get('Guests', '')} guests\n"
+            
+            reservation_list += f"\n📞 Please call us at {RESTAURANT_INFO['phone']} to specify which reservation you'd like to cancel."
+            
+            return jsonify({'fulfillmentText': reservation_list})
+            
+    except Exception as e:
+        print(f"❌ Error in cancel_reservation: {e}")
+        return jsonify({'fulfillmentText': f'Sorry, error cancelling your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'})
+
+def handle_check_my_reservation(parameters):
+    """Gestisce richiesta di controllo delle proprie prenotazioni"""
+    try:
+        print(f"🔧 DEBUG - Check my reservation parameters: {parameters}")
+        
+        # Estrai numero di telefono
+        phone_raw = parameters.get('phone_number', parameters.get('phone', ''))
+        phone = extract_value(phone_raw)
+        
+        print(f"🔧 DEBUG - Extracted phone: {phone}")
+        
+        if not phone:
+            return jsonify({
+                'fulfillmentText': "Please provide your phone number to check your reservations."
+            })
+        
+        # Cerca prenotazioni dell'utente
+        user_reservations = get_user_reservations(phone)
+        
+        if not user_reservations:
+            return jsonify({
+                'fulfillmentText': f"I couldn't find any active reservations for phone number {phone}. Would you like to make a new reservation?"
+            })
+        
+        if len(user_reservations) == 1:
+            # Una sola prenotazione - mostra dettagli completi
+            reservation = user_reservations[0]
+            
+            rich_response = {
+                "fulfillmentText": "📋 Your reservation details:",
+                "fulfillmentMessages": [
+                    {
+                        "text": {
+                            "text": ["📋 Your reservation details:"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": [f"👤 Name: {reservation.get('Name', '')}"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": [f"📞 Phone: {reservation.get('Phone', '')}"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": [f"📧 Email: {reservation.get('Email', '')}"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": [f"👥 Guests: {reservation.get('Guests', '')}"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": [f"📅 Date: {reservation.get('Date', '')}"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": [f"🕐 Time: {reservation.get('Time', '')}"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": [f"🪑 Table: {reservation.get('Table', '')}"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": ["✅ Status: Confirmed"]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": ["Need to modify or cancel? Just let me know!"]
+                        }
+                    }
+                ]
+            }
+            return jsonify(rich_response)
+            
+        else:
+            # Multiple prenotazioni - mostra lista
+            rich_response = {
+                "fulfillmentText": f"📋 You have {len(user_reservations)} active reservations:",
+                "fulfillmentMessages": [
+                    {
+                        "text": {
+                            "text": [f"📋 You have {len(user_reservations)} active reservations:"]
+                        }
+                    }
+                ]
+            }
+            
+            for i, reservation in enumerate(user_reservations, 1):
+                rich_response["fulfillmentMessages"].append({
+                    "text": {
+                        "text": [f"{i}. {reservation.get('Date', '')} at {reservation.get('Time', '')} - {reservation.get('Guests', '')} guests (Table {reservation.get('Table', '')})"]
+                    }
+                })
+            
+            rich_response["fulfillmentMessages"].append({
+                "text": {
+                    "text": ["Need to modify or cancel any reservation? Just let me know!"]
+                }
+            })
+            
+            return jsonify(rich_response)
+            
+    except Exception as e:
+        print(f"❌ Error in check_my_reservation: {e}")
+        return jsonify({'fulfillmentText': f'Sorry, error checking your reservations. Please call us at {RESTAURANT_INFO["phone"]}.'})
+
 def extract_value(param):
     """Estrae valore da parametri Dialogflow con controlli robusti"""
     try:
