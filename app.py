@@ -21,10 +21,6 @@ CORS(app)
 
 # Carica modello ML
 try:
-    model = joblib.load('restaurant_model_client.pkl')
-    print("✅ ML Model loaded!")
-except:
-    print("❌ Model not found!")
     model = None
 
 # Info ristorante - AGGIORNATE PER RESTORAN
@@ -170,21 +166,39 @@ def convert_time_to_hour(time_str):
         return 19  # Default 7PM
 
 def check_table_availability(table_number, guest_count, day_of_week, hour_of_day):
-    """Usa ML model per controllare disponibilità tavolo"""
-    if model is None:
-        return False
-    try:
-        input_data = np.array([[table_number, guest_count, day_of_week, hour_of_day]])
-        prediction = model.predict(input_data)[0]
-        return prediction == 0  # 0 = available, 1 = occupied
-    except:
-        return False
+    """Controllo semplice senza ML"""
+    import random
+    
+    # Logica basata su orari di punta
+    if hour_of_day >= 19 and hour_of_day <= 21:  # Ora di cena
+        availability_rate = 0.3  # Meno tavoli disponibili
+    elif hour_of_day >= 12 and hour_of_day <= 14:  # Ora di pranzo
+        availability_rate = 0.5
+    else:
+        availability_rate = 0.8  # Orari tranquilli
+    
+    # Considera il numero di ospiti
+    if guest_count <= 2:
+        # Tavoli piccoli (1-8) più probabili
+        if table_number <= 8:
+            return random.random() < availability_rate + 0.2
+        else:
+            return random.random() < availability_rate - 0.1
+    elif guest_count <= 4:
+        # Tavoli medi (9-15) ottimali
+        if 9 <= table_number <= 15:
+            return random.random() < availability_rate + 0.1
+        else:
+            return random.random() < availability_rate
+    else:
+        # Tavoli grandi (16-20) per gruppi numerosi
+        if table_number >= 16:
+            return random.random() < availability_rate + 0.2
+        else:
+            return random.random() < availability_rate - 0.2
 
 def find_available_table(guest_count, day_of_week, hour_of_day):
-    """
-    Trova tavolo disponibile automaticamente
-    NON richiede table_number dal cliente
-    """
+    """Trova tavolo disponibile - versione semplificata"""
     available_tables = []
     
     # Controlla tutti i tavoli (1-20)
@@ -195,15 +209,12 @@ def find_available_table(guest_count, day_of_week, hour_of_day):
     if available_tables:
         # Scegli il miglior tavolo per il numero di ospiti
         if guest_count <= 2:
-            # Preferisci tavoli piccoli (1-8)
             small_tables = [t for t in available_tables if t <= 8]
             best_table = small_tables[0] if small_tables else available_tables[0]
         elif guest_count <= 4:
-            # Preferisci tavoli medi (9-15)
             medium_tables = [t for t in available_tables if 9 <= t <= 15]
             best_table = medium_tables[0] if medium_tables else available_tables[0]
         else:
-            # Preferisci tavoli grandi (16-20)
             large_tables = [t for t in available_tables if t >= 16]
             best_table = large_tables[0] if large_tables else available_tables[0]
         
