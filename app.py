@@ -402,25 +402,34 @@ def handle_make_reservation(parameters):
         return jsonify({'fulfillmentText': f'Sorry, there was an error processing your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'})
         
 def handle_show_menu(parameters):
-    """Gestisce visualizzazione menu - VERSIONE SEMPLICE"""
+    """Gestisce visualizzazione menu - UNICODE NEWLINES"""
     menu_category = parameters.get('menu-category', '').lower()
     
     if menu_category and menu_category in MENU:
         items = MENU[menu_category]
-        response_text = f"🍽️ {menu_category.title()} Menu: "
-        response_text += ", ".join([f"{i}. {item}" for i, item in enumerate(items, 1)])
+        response_text = f"🍽️ {menu_category.title()} Menu:{chr(10)}{chr(10)}"
+        for i, item in enumerate(items, 1):
+            response_text += f"{i}. {item}{chr(10)}"
     else:
-        response_text = f"🍽️ {RESTAURANT_INFO['name']} Menu: "
+        response_text = f"🍽️ {RESTAURANT_INFO['name']} Menu:{chr(10)}{chr(10)}"
         
-        # Formato compatto con separatori
-        menu_parts = []
-        menu_parts.append("☀️ BREAKFAST: " + " • ".join(MENU['breakfast']))
-        menu_parts.append("🍛 LUNCH: " + " • ".join(MENU['lunch']))
-        menu_parts.append("🌅 DINNER: " + " • ".join(MENU['dinner']))
-        menu_parts.append("🥤 BEVERAGES: " + " • ".join(MENU['beverages']))
-        menu_parts.append(f"📞 For prices, call {RESTAURANT_INFO['phone']}")
-        
-        response_text += " | ".join(menu_parts)
+        response_text += f"☀️ BREAKFAST:{chr(10)}"
+        for item in MENU['breakfast']:
+            response_text += f"• {item}{chr(10)}"
+            
+        response_text += f"{chr(10)}🍛 LUNCH:{chr(10)}"
+        for item in MENU['lunch']:
+            response_text += f"• {item}{chr(10)}"
+            
+        response_text += f"{chr(10)}🌅 DINNER:{chr(10)}"
+        for item in MENU['dinner']:
+            response_text += f"• {item}{chr(10)}"
+            
+        response_text += f"{chr(10)}🥤 BEVERAGES:{chr(10)}"
+        for item in MENU['beverages']:
+            response_text += f"• {item}{chr(10)}"
+            
+        response_text += f"{chr(10)}📞 For prices, call {RESTAURANT_INFO['phone']}"
     
     return jsonify({'fulfillmentText': response_text})
 
