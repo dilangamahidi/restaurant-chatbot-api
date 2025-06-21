@@ -348,8 +348,8 @@ def handle_make_reservation(parameters):
         
         # Dati prenotazione
         guests = extract_value(parameters.get('guest_count', parameters.get('number', 2)))
-        date = extract_value(parameters.get('date', ''))
-        time = extract_value(parameters.get('time', ''))
+        date = extract_value(parameters.get('day_of_week', parameters.get('date', '')))
+        time = extract_value(parameters.get('hour_of_day', parameters.get('time', '')))
         
         guest_count = int(guests) if guests else 2
         
