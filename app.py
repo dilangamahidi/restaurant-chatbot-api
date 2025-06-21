@@ -398,24 +398,74 @@ def handle_make_reservation(parameters):
         # 🔧 DEBUG - Stampa tutti i parametri ricevuti
         print(f"🔧 DEBUG - RAW PARAMETERS: {parameters}")
         
-        # Estrai tutti i parametri
+        # Funzione helper migliorata per estrarre valori
         def extract_value(param):
             if isinstance(param, list):
                 return param[0] if param else None
+            elif isinstance(param, dict):
+                # Se è un dict, cerca chiavi comuni come 'name', 'value', etc.
+                if 'name' in param:
+                    return param['name']
+                elif 'value' in param:
+                    return param['value']
+                elif len(param) == 1:
+                    # Se ha una sola chiave, prendi il valore
+                    return list(param.values())[0]
+                else:
+                    # Se è un dict complesso, convertilo in stringa leggibile
+                    return str(param)
             return param
         
-        # 🔧 DEBUG - Controlla ogni singolo parametro
-        print(f"🔧 DEBUG - name: {parameters.get('name')}")
-        print(f"🔧 DEBUG - phone_number: {parameters.get('phone_number')}")
-        print(f"🔧 DEBUG - email: {parameters.get('email')}")
-        print(f"🔧 DEBUG - guest_count: {parameters.get('guest_count')}")
-        print(f"🔧 DEBUG - day_of_week: {parameters.get('day_of_week')}")
-        print(f"🔧 DEBUG - hour_of_day: {parameters.get('hour_of_day')}")
+        # Funzione specifica per il nome che gestisce formati complessi
+        def extract_name(name_param):
+            if not name_param:
+                return ''
+            
+            # Se è già una stringa semplice
+            if isinstance(name_param, str):
+                return name_param.strip()
+            
+            # Se è una lista
+            if isinstance(name_param, list):
+                if len(name_param) > 0:
+                    return extract_name(name_param[0])
+                return ''
+            
+            # Se è un dizionario
+            if isinstance(name_param, dict):
+                # Cerca chiavi comuni per il nome
+                for key in ['name', 'given-name', 'first-name', 'value', 'text']:
+                    if key in name_param:
+                        result = name_param[key]
+                        if isinstance(result, str):
+                            return result.strip()
+                        elif isinstance(result, dict) and 'name' in result:
+                            return result['name'].strip()
+                
+                # Se nessuna chiave comune, prova a estrarre il primo valore stringa
+                for value in name_param.values():
+                    if isinstance(value, str) and value.strip():
+                        return value.strip()
+            
+            # Fallback: converti in stringa e pulisci
+            name_str = str(name_param)
+            # Rimuovi caratteri comuni di formattazione dict/list
+            import re
+            cleaned = re.sub(r"[{}\[\]'\":]", "", name_str)
+            cleaned = re.sub(r"\s+", " ", cleaned)  # Normalizza spazi
+            return cleaned.strip()
         
-        # Dati personali - SEMPLIFICATO
-        name = extract_value(parameters.get('name', ''))
+        # 🔧 DEBUG - Controlla ogni singolo parametro
+        print(f"🔧 DEBUG - name raw: {parameters.get('name')}")
+        print(f"🔧 DEBUG - name type: {type(parameters.get('name'))}")
+        
+        # Estrai dati personali con parsing migliorato
+        name = extract_name(parameters.get('name', ''))
         phone = extract_value(parameters.get('phone_number', ''))
         email = extract_value(parameters.get('email', ''))
+        
+        # 🔧 DEBUG - Risultato parsing nome
+        print(f"🔧 DEBUG - name parsed: '{name}'")
         
         # Dati prenotazione
         guests = extract_value(parameters.get('guest_count', parameters.get('number', 2)))
@@ -430,7 +480,7 @@ def handle_make_reservation(parameters):
         
         # Controlla parametri mancanti
         missing = []
-        if not name:
+        if not name or name.lower() in ['none', 'null', '']:
             missing.append("your full name")
         if not phone:
             missing.append("your phone number")
