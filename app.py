@@ -402,44 +402,25 @@ def handle_make_reservation(parameters):
         return jsonify({'fulfillmentText': f'Sorry, there was an error processing your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'})
         
 def handle_show_menu(parameters):
-    """Gestisce visualizzazione menu - RICH RESPONSE"""
+    """Gestisce visualizzazione menu - VERSIONE SEMPLICE"""
     menu_category = parameters.get('menu-category', '').lower()
     
     if menu_category and menu_category in MENU:
         items = MENU[menu_category]
-        response_text = f"🍽️ {menu_category.title()} Menu:\n\n" + "\n".join([f"{i}. {item}" for i, item in enumerate(items, 1)])
+        response_text = f"🍽️ {menu_category.title()} Menu: "
+        response_text += ", ".join([f"{i}. {item}" for i, item in enumerate(items, 1)])
     else:
-        # Usa Rich Response per migliore formattazione
-        response_text = f"🍽️ {RESTAURANT_INFO['name']} Menu"
+        response_text = f"🍽️ {RESTAURANT_INFO['name']} Menu: "
         
-        # Rich Response structure
-        rich_response = {
-            "fulfillmentText": response_text,
-            "fulfillmentMessages": [
-                {
-                    "text": {
-                        "text": [
-                            f"""🍽️ {RESTAURANT_INFO['name']} Menu:
-
-☀️ BREAKFAST:
-- {chr(10).join(MENU['breakfast'])}
-
-🍛 LUNCH:
-- {chr(10).join(MENU['lunch'])}
-
-🌅 DINNER:
-- {chr(10).join(MENU['dinner'])}
-
-🥤 BEVERAGES:
-- {chr(10).join(MENU['beverages'])}
-
-📞 For prices, call {RESTAURANT_INFO['phone']}"""
-                        ]
-                    }
-                }
-            ]
-        }
-        return jsonify(rich_response)
+        # Formato compatto con separatori
+        menu_parts = []
+        menu_parts.append("☀️ BREAKFAST: " + " • ".join(MENU['breakfast']))
+        menu_parts.append("🍛 LUNCH: " + " • ".join(MENU['lunch']))
+        menu_parts.append("🌅 DINNER: " + " • ".join(MENU['dinner']))
+        menu_parts.append("🥤 BEVERAGES: " + " • ".join(MENU['beverages']))
+        menu_parts.append(f"📞 For prices, call {RESTAURANT_INFO['phone']}")
+        
+        response_text += " | ".join(menu_parts)
     
     return jsonify({'fulfillmentText': response_text})
 
