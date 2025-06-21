@@ -422,16 +422,16 @@ def handle_show_menu(parameters):
                             f"""🍽️ {RESTAURANT_INFO['name']} Menu:
 
 ☀️ BREAKFAST:
-- {chr(10).join(MENU['breakfast'])}
+- {f'{chr(10)}- '.join(MENU['breakfast'])}
 
 🍛 LUNCH:
-- {chr(10).join(MENU['lunch'])}
+- {f'{chr(10)}- '.join(MENU['lunch'])}
 
 🌅 DINNER:
-- {chr(10).join(MENU['dinner'])}
+- {f'{chr(10)}- '.join(MENU['dinner'])}
 
 🥤 BEVERAGES:
-- {chr(10).join(MENU['beverages'])}
+- {f'{chr(10)}- '.join(MENU['beverages'])}
 
 📞 For prices, call {RESTAURANT_INFO['phone']}"""
                         ]
