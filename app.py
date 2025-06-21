@@ -553,16 +553,6 @@ def handle_make_reservation(parameters):
                         "text": {
                             "text": ["✅ Your reservation is confirmed!"]
                         }
-                    },
-                    {
-                        "text": {
-                            "text": ["We look forward to serving you! We'll contact you if there are any changes."]
-                        }
-                    },
-                    {
-                        "text": {
-                            "text": [f"📞 For questions: {RESTAURANT_INFO['phone']}"]
-                        }
                     }
                 ]
             }
