@@ -1,7 +1,12 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+import joblib
+import numpy as np
 from datetime import datetime
 import os
+import re
+import gspread
+from google.oauth2.service_account import Credentials
 import json
 
 SCOPES = [
@@ -9,14 +14,18 @@ SCOPES = [
     'https://www.googleapis.com/auth/drive'
 ]
 
-SHEET_ID = "1QTaGoxeQur4Rh03tJETcRwExbmTvU1FF6TE1v0UjuMk"
+SHEET_ID = "1QTaGoxeQur4Rh03tJETcRwExbmTvU1FF6TE1v0UjuMk/edit?gid=0#gid=0"
 
 app = Flask(__name__)
 CORS(app)
 
-# Carica modello ML - DISABILITATO TEMPORANEAMENTE
-model = None
-print("⚠️ Running without ML model - using simple logic")
+# Carica modello ML
+try:
+    model = joblib.load('restaurant_model_client.pkl')
+    print("✅ ML Model loaded!")
+except:
+    print("❌ Model not found!")
+    model = None
 
 # Info ristorante - AGGIORNATE PER RESTORAN
 RESTAURANT_INFO = {
@@ -38,10 +47,13 @@ MENU = {
 def init_google_sheets():
     """Inizializza connessione a Google Sheets"""
     try:
-        # Per ora disabilitato - aggiungeremo dopo
-        print("⚠️ Google Sheets integration disabled")
-        return None
+        # Carica le credenziali
+        creds = Credentials.from_service_account_file('credentials.json', scopes=SCOPES)
+        client = gspread.authorize(creds)
         
+        # Apri il foglio
+        sheet = client.open_by_key(SHEET_ID).sheet1
+        return sheet
     except Exception as e:
         print(f"❌ Errore Google Sheets: {e}")
         return None
@@ -49,8 +61,28 @@ def init_google_sheets():
 def save_reservation_to_sheets(reservation_data):
     """Salva prenotazione su Google Sheets"""
     try:
-        print(f"📝 Would save reservation: {reservation_data['name']}")
-        # Per ora simula il salvataggio
+        sheet = init_google_sheets()
+        if not sheet:
+            print("❌ Impossibile connettersi a Google Sheets")
+            return False
+        
+        # Prepara i dati per il foglio
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        row_data = [
+            timestamp,
+            reservation_data['name'],
+            reservation_data['phone'],
+            reservation_data['email'],
+            reservation_data['guests'],
+            reservation_data['date'],
+            reservation_data['time'],
+            reservation_data['table'],
+            'Confirmed'
+        ]
+        
+        # Aggiungi la riga al foglio
+        sheet.append_row(row_data)
+        print(f"✅ Prenotazione salvata su Google Sheets: {reservation_data['name']}")
         return True
         
     except Exception as e:
@@ -60,8 +92,13 @@ def save_reservation_to_sheets(reservation_data):
 def get_reservations_from_sheets():
     """Recupera tutte le prenotazioni dal foglio"""
     try:
-        # Per ora ritorna lista vuota
-        return []
+        sheet = init_google_sheets()
+        if not sheet:
+            return []
+        
+        # Ottieni tutti i record (saltando l'header)
+        records = sheet.get_all_records()
+        return records
         
     except Exception as e:
         print(f"❌ Errore leggendo da Google Sheets: {e}")
@@ -70,7 +107,15 @@ def get_reservations_from_sheets():
 def check_existing_reservation(name, phone, date, time):
     """Controlla se esiste già una prenotazione identica"""
     try:
-        # Per ora ritorna sempre False (no duplicati)
+        reservations = get_reservations_from_sheets()
+        
+        for reservation in reservations:
+            if (reservation.get('Name', '').lower() == name.lower() and
+                reservation.get('Phone', '') == phone and
+                reservation.get('Date', '') == date and
+                reservation.get('Time', '') == time and
+                reservation.get('Status', '') == 'Confirmed'):
+                return True
         return False
         
     except Exception as e:
@@ -113,39 +158,21 @@ def convert_time_to_hour(time_str):
         return 19  # Default 7PM
 
 def check_table_availability(table_number, guest_count, day_of_week, hour_of_day):
-    """Controllo semplice senza ML"""
-    import random
-    
-    # Logica basata su orari di punta
-    if hour_of_day >= 19 and hour_of_day <= 21:  # Ora di cena
-        availability_rate = 0.3  # Meno tavoli disponibili
-    elif hour_of_day >= 12 and hour_of_day <= 14:  # Ora di pranzo
-        availability_rate = 0.5
-    else:
-        availability_rate = 0.8  # Orari tranquilli
-    
-    # Considera il numero di ospiti
-    if guest_count <= 2:
-        # Tavoli piccoli (1-8) più probabili
-        if table_number <= 8:
-            return random.random() < availability_rate + 0.2
-        else:
-            return random.random() < availability_rate - 0.1
-    elif guest_count <= 4:
-        # Tavoli medi (9-15) ottimali
-        if 9 <= table_number <= 15:
-            return random.random() < availability_rate + 0.1
-        else:
-            return random.random() < availability_rate
-    else:
-        # Tavoli grandi (16-20) per gruppi numerosi
-        if table_number >= 16:
-            return random.random() < availability_rate + 0.2
-        else:
-            return random.random() < availability_rate - 0.2
+    """Usa ML model per controllare disponibilità tavolo"""
+    if model is None:
+        return False
+    try:
+        input_data = np.array([[table_number, guest_count, day_of_week, hour_of_day]])
+        prediction = model.predict(input_data)[0]
+        return prediction == 0  # 0 = available, 1 = occupied
+    except:
+        return False
 
 def find_available_table(guest_count, day_of_week, hour_of_day):
-    """Trova tavolo disponibile - versione semplificata"""
+    """
+    Trova tavolo disponibile automaticamente
+    NON richiede table_number dal cliente
+    """
     available_tables = []
     
     # Controlla tutti i tavoli (1-20)
@@ -156,12 +183,15 @@ def find_available_table(guest_count, day_of_week, hour_of_day):
     if available_tables:
         # Scegli il miglior tavolo per il numero di ospiti
         if guest_count <= 2:
+            # Preferisci tavoli piccoli (1-8)
             small_tables = [t for t in available_tables if t <= 8]
             best_table = small_tables[0] if small_tables else available_tables[0]
         elif guest_count <= 4:
+            # Preferisci tavoli medi (9-15)
             medium_tables = [t for t in available_tables if 9 <= t <= 15]
             best_table = medium_tables[0] if medium_tables else available_tables[0]
         else:
+            # Preferisci tavoli grandi (16-20)
             large_tables = [t for t in available_tables if t >= 16]
             best_table = large_tables[0] if large_tables else available_tables[0]
         
@@ -230,50 +260,11 @@ def dialogflow_webhook():
         return jsonify({
             'fulfillmentText': f"Sorry, I'm having technical difficulties. Please call us at {RESTAURANT_INFO['phone']}."
         })
-
-def handle_check_availability(parameters):
-    """Gestisce controllo disponibilità generale"""
-    try:
-        def extract_value(param):
-            if isinstance(param, list):
-                return param[0] if param else None
-            return param
-        
-        guests = extract_value(parameters.get('guest_count', parameters.get('number', 2)))
-        date = extract_value(parameters.get('date', parameters.get('day_of_week', '')))
-        time = extract_value(parameters.get('time', parameters.get('hour_of_day', '')))
-        
-        guest_count = int(guests) if guests else 2
-        
-        # Controlla parametri mancanti
-        missing = []
-        if not date:
-            missing.append("the date")
-        if not time:
-            missing.append("the time")
-            
-        if missing:
-            missing_text = " and ".join(missing)
-            return jsonify({'fulfillmentText': f"I need {missing_text} to check availability for {guest_count} guests."})
-        
-        # Controlla disponibilità
-        day_of_week, hour_of_day = parse_dialogflow_datetime(date, time)
-        result = find_available_table(guest_count, day_of_week, hour_of_day)
-        
-        if result['available']:
-            response_text = f"✅ Great! We have {result['total_available']} tables available for {guest_count} guests. Would you like to make a reservation?"
-        else:
-            response_text = f"😔 Sorry, no tables available for {guest_count} guests at that time. Try a different time or call us at {RESTAURANT_INFO['phone']}."
-            
-        return jsonify({'fulfillmentText': response_text})
-        
-    except Exception as e:
-        print(f"Error in check_availability: {e}")
-        return jsonify({'fulfillmentText': 'Sorry, error checking availability. Please call us.'})
         
 def handle_check_table_specific(parameters):
     """Gestisce controllo tavolo specifico"""
     try:
+        # 🔧 AGGIUNGI QUESTA LINEA PER DEBUG
         print(f"DEBUG - Raw parameters: {parameters}")
         
         def extract_value(param):
@@ -286,9 +277,15 @@ def handle_check_table_specific(parameters):
         date_raw = parameters.get('date', parameters.get('day_of_week', ''))
         time_raw = parameters.get('time', parameters.get('hour_of_day', ''))
         
+        # 🔧 AGGIUNGI ANCHE QUESTO
+        print(f"DEBUG - Extracted raw: table={table_raw}, date={date_raw}, time={time_raw}")
+        
         table_number = extract_value(table_raw)
         date = extract_value(date_raw)
         time = extract_value(time_raw)
+        
+        # 🔧 E QUESTO
+        print(f"DEBUG - Final values: table={table_number}, date={date}, time={time}")
         
         # Valida table number
         try:
@@ -309,7 +306,7 @@ def handle_check_table_specific(parameters):
             missing_text = " and ".join(missing)
             return jsonify({'fulfillmentText': f"I need {missing_text} to check table {table_num} availability."})
         
-        # Converti date/time
+        # Converti date/time per ML
         day_of_week, hour_of_day = parse_dialogflow_datetime(date, time)
         
         # Controlla tavolo specifico (usando guest_count=4 come default per il check)
@@ -336,6 +333,7 @@ def parse_dialogflow_datetime(date_param, time_param):
             date_str = str(date_param)
             if 'T' in date_str:
                 clean_date = date_str.split('T')[0]
+                from datetime import datetime
                 parsed_date = datetime.strptime(clean_date, '%Y-%m-%d')
                 day_of_week = parsed_date.weekday()
         
@@ -352,7 +350,9 @@ def parse_dialogflow_datetime(date_param, time_param):
         return 5, 19
 
 def format_date_readable(date_string):
-    """Converte data da formato ISO in formato leggibile"""
+    """
+    Converte data da formato ISO in formato leggibile
+    """
     if not date_string:
         return ""
     
@@ -372,7 +372,9 @@ def format_date_readable(date_string):
         return str(date_string)
 
 def format_time_readable(time_string):
-    """Converte ora da formato ISO in formato leggibile"""
+    """
+    Converte ora da formato ISO in formato leggibile
+    """
     if not time_string:
         return ""
     
@@ -410,6 +412,7 @@ def format_time_readable(time_string):
 def handle_make_reservation(parameters):
     """Gestisce prenotazione completa - MULTIPLE MESSAGES"""
     try:
+        # 🔧 DEBUG - Stampa tutti i parametri ricevuti
         print(f"🔧 DEBUG - RAW PARAMETERS: {parameters}")
         
         def extract_value(param):
@@ -457,6 +460,12 @@ def handle_make_reservation(parameters):
             missing_text = ", ".join(missing[:-1]) + f" and {missing[-1]}" if len(missing) > 1 else missing[0]
             return jsonify({'fulfillmentText': f"I need {missing_text} to complete your reservation."})
         
+        # 🆕 CONTROLLO DUPLICATI
+        if check_existing_reservation(name, phone, formatted_date, formatted_time):
+            return jsonify({
+                'fulfillmentText': f"⚠️ It looks like you already have a reservation for {formatted_date} at {formatted_time}. Please contact us if you need to modify it."
+            })
+        
         # Controlla disponibilità
         day_of_week, hour_of_day = parse_dialogflow_datetime(date, time)
         result = find_available_table(guest_count, day_of_week, hour_of_day)
@@ -464,7 +473,7 @@ def handle_make_reservation(parameters):
         if result['available']:
             table_num = result['table_number']
             
-            # Prepara dati per salvataggio
+            # 🆕 PREPARA DATI PER GOOGLE SHEETS
             reservation_data = {
                 'name': name,
                 'phone': phone,
@@ -475,7 +484,7 @@ def handle_make_reservation(parameters):
                 'table': table_num
             }
             
-            # Salva (per ora simulato)
+            # 🆕 SALVA SU GOOGLE SHEETS
             sheets_saved = save_reservation_to_sheets(reservation_data)
             
             # Prepara la risposta
@@ -529,6 +538,14 @@ def handle_make_reservation(parameters):
                     }
                 ]
             }
+            
+            # 🆕 AGGIUNGI MESSAGGIO SE SHEETS NON FUNZIONA
+            if not sheets_saved:
+                rich_response["fulfillmentMessages"].append({
+                    "text": {
+                        "text": ["📝 Note: Reservation saved locally. Our staff will contact you to confirm."]
+                    }
+                })
             
             return jsonify(rich_response)
             
@@ -710,19 +727,23 @@ def handle_restaurant_location():
     }
     return jsonify(rich_response)
 
+# Test endpoint
 @app.route('/test')
 def test():
     """Test endpoint per verificare funzionalità"""
+    if model is None:
+        return jsonify({'error': 'Model not loaded'})
+    
     # Test availability
     result = find_available_table(4, 5, 19)  # 4 guests, Saturday, 7PM
     
     return jsonify({
-        'message': 'Test successful',
-        'model_loaded': model is not None,
+        'model_loaded': True,
         'test_result': result,
         'restaurant': RESTAURANT_INFO['name']
     })
 
+# 🔧 SPOSTA QUESTO QUI (PRIMA di if __name__)
 @app.route('/ping')
 def ping():
     """Keep-alive endpoint per evitare cold starts"""
