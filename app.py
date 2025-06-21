@@ -47,13 +47,25 @@ MENU = {
 def init_google_sheets():
     """Inizializza connessione a Google Sheets"""
     try:
-        # Carica le credenziali
-        creds = Credentials.from_service_account_file('credentials.json', scopes=SCOPES)
-        client = gspread.authorize(creds)
+        # Prova prima le variabili d'ambiente (per produzione)
+        google_credentials = os.environ.get('GOOGLE_CREDENTIALS')
         
-        # Apri il foglio
+        if google_credentials:
+            # In produzione: usa variabile d'ambiente
+            creds_dict = json.loads(google_credentials)
+            creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
+        else:
+            # In sviluppo locale: usa file
+            if os.path.exists('credentials.json'):
+                creds = Credentials.from_service_account_file('credentials.json', scopes=SCOPES)
+            else:
+                print("❌ Nessun credential trovato")
+                return None
+        
+        client = gspread.authorize(creds)
         sheet = client.open_by_key(SHEET_ID).sheet1
         return sheet
+        
     except Exception as e:
         print(f"❌ Errore Google Sheets: {e}")
         return None
