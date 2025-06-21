@@ -331,117 +331,54 @@ def parse_dialogflow_datetime(date_param, time_param):
         return day_of_week, hour_of_day
     except:
         return 5, 19
-
-def clean_email(email_string):
-    """
-    Versione più aggressiva per pulire l'email
-    """
-    if not email_string:
-        return ""
-    
-    email_str = str(email_string).strip()
-    
-    # 1. Cerca pattern email standard
-    email_pattern = r'[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
-    matches = re.findall(email_pattern, email_str)
-    
-    if matches:
-        return matches[0]
-    
-    # 2. Se non trova, spezza la stringa e cerca quella con @
-    words = email_str.split()
-    for word in words:
-        if '@' in word and '.' in word:
-            # Pulisci caratteri indesiderati all'inizio e fine
-            cleaned = re.sub(r'^[^a-zA-Z0-9]+|[^a-zA-Z0-9.]+$', '', word)
-            if '@' in cleaned and '.' in cleaned:
-                return cleaned
-    
-    # 3. Ultimo tentativo: rimuovi tutto tranne l'email
-    # Cerca il pattern più lungo che assomiglia a un'email
-    email_like = re.search(r'[a-zA-Z0-9._%+-]*@[a-zA-Z0-9.-]*\.[a-zA-Z]{2,}', email_str)
-    if email_like:
-        return email_like.group()
-    
-    return email_str
-
-def clean_phone(phone_string):
-    """
-    Pulisce il numero di telefono rimuovendo parole extra
-    """
-    if not phone_string:
-        return ""
-    
-    # Pattern per numeri di telefono (cifre, spazi, +, -, (, ))
-    phone_pattern = r'[\d\s\+\-\(\)]{7,}'
-    
-    # Cerca il numero nella stringa
-    matches = re.findall(phone_pattern, str(phone_string))
-    
-    # Restituisce il primo numero trovato, pulito
-    if matches:
-        # Rimuove tutto tranne cifre e alcuni caratteri
-        cleaned = re.sub(r'[^\d\+\-\(\)\s]', '', matches[0]).strip()
-        return cleaned
-    
-    return phone_string.strip()
-
-def clean_name(name_string):
-    """
-    Pulisce il nome rimuovendo parole extra
-    """
-    if not name_string:
-        return ""
-    
-    # Rimuove comuni parole di introduzione
-    unwanted_words = ['my', 'name', 'is', 'i', 'am', 'call', 'me', 'the']
-    
-    # Split in parole e filtra
-    words = str(name_string).lower().split()
-    cleaned_words = [word for word in words if word not in unwanted_words]
-    
-    # Ricompone il nome con la prima lettera maiuscola
-    cleaned_name = ' '.join(cleaned_words).title()
-    
-    return cleaned_name if cleaned_name else name_string.strip()
         
 def handle_make_reservation(parameters):
-    """Gestisce prenotazione completa - MULTIPLE MESSAGES con pulizia dati"""
+    """Gestisce prenotazione completa - MULTIPLE MESSAGES"""
     try:
+        # 🔧 DEBUG - Stampa tutti i parametri ricevuti
+        print(f"🔧 DEBUG - RAW PARAMETERS: {parameters}")
+        
         # Estrai tutti i parametri
         def extract_value(param):
             if isinstance(param, list):
                 return param[0] if param else None
             return param
         
+        # 🔧 DEBUG - Controlla ogni singolo parametro
+        print(f"🔧 DEBUG - person: {parameters.get('person')}")
+        print(f"🔧 DEBUG - phone_number: {parameters.get('phone_number')}")
+        print(f"🔧 DEBUG - email: {parameters.get('email')}")
+        print(f"🔧 DEBUG - guest_count: {parameters.get('guest_count')}")
+        print(f"🔧 DEBUG - day_of_week: {parameters.get('day_of_week')}")
+        print(f"🔧 DEBUG - hour_of_day: {parameters.get('hour_of_day')}")
+        
         # Dati personali
         person_data = parameters.get('person', {})
         
-        # Estrai nome
+        # 🔧 Prova diverse varianti per il nome
         if isinstance(person_data, dict):
-            raw_name = extract_value(person_data.get('name', ''))
+            name = extract_value(person_data.get('name', ''))
         elif isinstance(person_data, str):
-            raw_name = person_data
+            name = person_data
         else:
-            raw_name = extract_value(parameters.get('person', ''))
+            name = extract_value(parameters.get('person', ''))
             
-        raw_phone = extract_value(parameters.get('phone_number', ''))
-        raw_email = extract_value(parameters.get('email', ''))
-        
-        # 🔧 PULISCI I DATI ESTRATTI
-        name = clean_name(raw_name)
-        phone = clean_phone(raw_phone)
-        email = clean_email(raw_email)
+        phone = extract_value(parameters.get('phone_number', ''))
+        email = extract_value(parameters.get('email', ''))
         
         # Dati prenotazione
         guests = extract_value(parameters.get('guest_count', parameters.get('number', 2)))
         date = extract_value(parameters.get('day_of_week', parameters.get('date', '')))
         time = extract_value(parameters.get('hour_of_day', parameters.get('time', '')))
         
-        print(f"🔧 DEBUG - CLEANED VALUES:")
-        print(f"   name: '{name}' (was: '{raw_name}')")
-        print(f"   phone: '{phone}' (was: '{raw_phone}')")
-        print(f"   email: '{email}' (was: '{raw_email}')")
+        # 🔧 DEBUG - Valori estratti
+        print(f"🔧 DEBUG - EXTRACTED VALUES:")
+        print(f"   name: '{name}'")
+        print(f"   phone: '{phone}'")
+        print(f"   email: '{email}'")
+        print(f"   guests: '{guests}'")
+        print(f"   date: '{date}'")
+        print(f"   time: '{time}'")
         
         guest_count = int(guests) if guests else 2
         
@@ -451,7 +388,7 @@ def handle_make_reservation(parameters):
             missing.append("your full name")
         if not phone:
             missing.append("your phone number")
-        if not email or '@' not in email:
+        if not email:
             missing.append("your email address")
         if not date:
             missing.append("the date")
@@ -464,7 +401,10 @@ def handle_make_reservation(parameters):
         
         # Controlla disponibilità
         day_of_week, hour_of_day = parse_dialogflow_datetime(date, time)
+        print(f"🔧 DEBUG - PARSED: day_of_week={day_of_week}, hour_of_day={hour_of_day}")
+        
         result = find_available_table(guest_count, day_of_week, hour_of_day)
+        print(f"🔧 DEBUG - AVAILABILITY RESULT: {result}")
         
         if result['available']:
             table_num = result['table_number']
@@ -538,6 +478,9 @@ def handle_make_reservation(parameters):
             
     except Exception as e:
         print(f"🔧 ERROR in make_reservation: {e}")
+        print(f"🔧 ERROR type: {type(e)}")
+        import traceback
+        print(f"🔧 TRACEBACK: {traceback.format_exc()}")
         return jsonify({'fulfillmentText': f'Sorry, there was an error processing your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'})
         
 def handle_show_menu(parameters):
