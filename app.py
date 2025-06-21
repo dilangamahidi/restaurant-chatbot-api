@@ -92,44 +92,6 @@ def extract_value(param):
         print(f"❌ Param type: {type(param)}, value: {param}")
         return None
 
-def validate_reservation_params(name, phone, email, date, time, guests):
-    """Valida tutti i parametri di prenotazione"""
-    errors = []
-    
-    # Nome
-    if not name or len(str(name).strip()) < 2:
-        errors.append("a valid full name (at least 2 characters)")
-    
-    # Telefono
-    if not phone:
-        errors.append("your phone number")
-    elif not re.match(r'^[\d\s\-\+\(\)]+$', str(phone)):
-        errors.append("a valid phone number")
-    
-    # Email
-    if not email:
-        errors.append("your email address")
-    elif not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', str(email)):
-        errors.append("a valid email address")
-    
-    # Data
-    if not date:
-        errors.append("the reservation date")
-    
-    # Ora
-    if not time:
-        errors.append("the reservation time")
-    
-    # Ospiti
-    try:
-        guest_count = int(guests) if guests else 0
-        if guest_count < 1 or guest_count > 20:
-            errors.append("number of guests (1-20)")
-    except (ValueError, TypeError):
-        errors.append("a valid number of guests")
-    
-    return errors
-
 # Aggiungi questa funzione che manca
 def handle_check_availability(parameters):
     """Gestisce controllo disponibilità generale"""
