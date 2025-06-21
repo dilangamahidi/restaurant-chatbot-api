@@ -329,7 +329,7 @@ def parse_dialogflow_datetime(date_param, time_param):
         return 5, 19
         
 def handle_make_reservation(parameters):
-    """Gestisce prenotazione completa con tutti i dati"""
+    """Gestisce prenotazione completa - VERSIONE FORMATTATA"""
     try:
         # Estrai tutti i parametri
         def extract_value(param):
@@ -373,98 +373,98 @@ def handle_make_reservation(parameters):
         # Controlla disponibilità
         day_of_week, hour_of_day = parse_dialogflow_datetime(date, time)
         result = find_available_table(guest_count, day_of_week, hour_of_day)
-        
         if result['available']:
             table_num = result['table_number']
             
-            # Qui salveresti in Google Sheets e invieresti email
-            
-            response_text = f"""🎉 Reservation Confirmed!
-            
-📋 Details:
-- Name: {name}
-- Phone: {phone} 
-- Email: {email}
-- Guests: {guest_count}
-- Date: {date}
-- Time: {time}
-- Table: {table_num}
-
-We look forward to serving you! We'll contact you if there are any changes.
-
-For any questions, call us at {RESTAURANT_INFO['phone']}."""
+            response_text = f"🎉 <strong>Reservation Confirmed!</strong><br><br>"
+            response_text += "📋 <strong>Details:</strong><br>"
+            response_text += f"• <strong>Name:</strong> {name}<br>"
+            response_text += f"• <strong>Phone:</strong> {phone}<br>"
+            response_text += f"• <strong>Email:</strong> {email}<br>"
+            response_text += f"• <strong>Guests:</strong> {guest_count}<br>"
+            response_text += f"• <strong>Date:</strong> {date}<br>"
+            response_text += f"• <strong>Time:</strong> {time}<br>"
+            response_text += f"• <strong>Table:</strong> {table_num}<br><br>"
+            response_text += "We look forward to serving you! We'll contact you if there are any changes.<br><br>"
+            response_text += f"For any questions, call us at {RESTAURANT_INFO['phone']}."
             
         else:
-            response_text = f"""😔 Sorry {name}, no tables are available for {guest_count} guests at that time. 
-
-Would you like to try:
-- Different time on the same day?
-- Different date?
-
-Or call us at {RESTAURANT_INFO['phone']} for more options."""
+            response_text = f"😔 Sorry {name}, no tables are available for {guest_count} guests at that time.<br><br>"
+            response_text += "<strong>Would you like to try:</strong><br>"
+            response_text += "• Different time on the same day?<br>"
+            response_text += "• Different date?<br><br>"
+            response_text += f"Or call us at {RESTAURANT_INFO['phone']} for more options."
             
         return jsonify({'fulfillmentText': response_text})
         
     except Exception as e:
         print(f"Error in make_reservation: {e}")
         return jsonify({'fulfillmentText': f'Sorry, there was an error processing your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'})
-
+        
 def handle_show_menu(parameters):
-    """Gestisce visualizzazione menu"""
+    """Gestisce visualizzazione menu - VERSIONE FORMATTATA"""
     menu_category = parameters.get('menu-category', '').lower()
     
     if menu_category and menu_category in MENU:
         # Categoria specifica
         items = MENU[menu_category]
-        response_text = f"🍽️ {menu_category.title()} Menu:\n\n"
+        response_text = f"🍽️ {menu_category.title()} Menu:"
+        response_text += "<br><br>"
         for i, item in enumerate(items, 1):
-            response_text += f"{i}. {item}\n"
+            response_text += f"{i}. {item}<br>"
     else:
-        # Menu completo
-        response_text = f"🍽️ {RESTAURANT_INFO['name']} Menu:\n\n"
-        response_text += "☀️ BREAKFAST:\n"
+        # Menu completo - VERSIONE MIGLIORATA
+        response_text = f"🍽️ {RESTAURANT_INFO['name']} Menu:"
+        response_text += "<br><br>"
+        
+        response_text += "☀️ <strong>BREAKFAST:</strong><br>"
         for item in MENU['breakfast']:
-            response_text += f"• {item}\n"
-        response_text += "\n🍛 LUNCH:\n"
+            response_text += f"• {item}<br>"
+            
+        response_text += "<br>🍛 <strong>LUNCH:</strong><br>"
         for item in MENU['lunch']:
-            response_text += f"• {item}\n"
-        response_text += "\n🌅 DINNER:\n"
+            response_text += f"• {item}<br>"
+            
+        response_text += "<br>🌅 <strong>DINNER:</strong><br>"
         for item in MENU['dinner']:
-            response_text += f"• {item}\n"
-        response_text += "\n🥤 BEVERAGES:\n"
+            response_text += f"• {item}<br>"
+            
+        response_text += "<br>🥤 <strong>BEVERAGES:</strong><br>"
         for item in MENU['beverages']:
-            response_text += f"• {item}\n"
-        response_text += f"\n📞 For prices, call {RESTAURANT_INFO['phone']}"
+            response_text += f"• {item}<br>"
+            
+        response_text += f"<br>📞 For prices, call {RESTAURANT_INFO['phone']}"
     
     return jsonify({'fulfillmentText': response_text})
 
 def handle_opening_hours():
-    """Gestisce orari apertura"""
-    response_text = f"🕐 {RESTAURANT_INFO['name']} Opening Hours:\n\n"
-    response_text += "📅 Monday - Saturday: 09:00 AM - 09:00 PM\n"
-    response_text += "📅 Sunday: 10:00 AM - 08:00 PM\n\n"
+    """Gestisce orari apertura - VERSIONE FORMATTATA"""
+    response_text = f"🕐 {RESTAURANT_INFO['name']} Opening Hours:"
+    response_text += "<br><br>"
+    response_text += "📅 <strong>Monday - Saturday:</strong> 09:00 AM - 09:00 PM<br>"
+    response_text += "📅 <strong>Sunday:</strong> 10:00 AM - 08:00 PM<br><br>"
     response_text += f"📞 For reservations: {RESTAURANT_INFO['phone']}"
     
     return jsonify({'fulfillmentText': response_text})
 
 def handle_restaurant_info():
-    """Gestisce info ristorante"""
-    response_text = f"🍽️ {RESTAURANT_INFO['name']}\n"
-    response_text += f"{RESTAURANT_INFO['description']}\n\n"
-    response_text += f"📍 {RESTAURANT_INFO['address']}\n"
-    response_text += f"📞 {RESTAURANT_INFO['phone']}\n"
-    response_text += f"📧 {RESTAURANT_INFO['email']}\n\n"
-    response_text += "🕐 Mon-Sat 9AM-9PM, Sun 10AM-8PM"
+    """Gestisce info ristorante - VERSIONE FORMATTATA"""
+    response_text = f"🍽️ <strong>{RESTAURANT_INFO['name']}</strong><br>"
+    response_text += f"<em>{RESTAURANT_INFO['description']}</em><br><br>"
+    response_text += f"📍 <strong>Address:</strong> {RESTAURANT_INFO['address']}<br>"
+    response_text += f"📞 <strong>Phone:</strong> {RESTAURANT_INFO['phone']}<br>"
+    response_text += f"📧 <strong>Email:</strong> {RESTAURANT_INFO['email']}<br><br>"
+    response_text += "🕐 <strong>Hours:</strong> Mon-Sat 9AM-9PM, Sun 10AM-8PM"
     
     return jsonify({'fulfillmentText': response_text})
 
 def handle_contact_human():
-    """Gestisce contatto umano"""
-    response_text = f"👨‍💼 Contact our staff:\n\n"
-    response_text += f"📞 Call: {RESTAURANT_INFO['phone']}\n"
-    response_text += f"📧 Email: {RESTAURANT_INFO['email']}\n"
-    response_text += f"📍 Visit: {RESTAURANT_INFO['address']}\n\n"
-    response_text += "Available: Mon-Sat 9AM-9PM, Sun 10AM-8PM"
+    """Gestisce contatto umano - VERSIONE FORMATTATA"""
+    response_text = f"👨‍💼 <strong>Contact our staff:</strong><br><br>"
+    response_text += f"📞 <strong>Call:</strong> {RESTAURANT_INFO['phone']}<br>"
+    response_text += f"📧 <strong>Email:</strong> {RESTAURANT_INFO['email']}<br>"
+    response_text += f"📍 <strong>Visit:</strong> {RESTAURANT_INFO['address']}<br><br>"
+    response_text += "<strong>Available:</strong> Mon-Sat 9AM-9PM, Sun 10AM-8PM"
     
     return jsonify({'fulfillmentText': response_text})
 
