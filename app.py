@@ -431,12 +431,7 @@ def handle_make_reservation(parameters):
         date = extract_value(parameters.get('day_of_week', parameters.get('date', '')))
         time = extract_value(parameters.get('hour_of_day', parameters.get('time', '')))
         
-        # 🔧 PULISCI I DATI ESTRATTI
-        name = clean_name(name) if name else name
-        phone = clean_phone(phone) if phone else phone
-        email = clean_email(email) if email else email
-        
-        # 🔧 FORMATTA DATA E ORA
+        # 🔧 FORMATTA DATA E ORA (senza pulizia dati)
         formatted_date = format_date_readable(date) if date else date
         formatted_time = format_time_readable(time) if time else time
         
