@@ -46,7 +46,7 @@ MENU = {
 }
 
 def handle_modify_reservation_date(parameters):
-    """Gestisce modifica della data di prenotazione"""
+    """Gestisce modifica della data di prenotazione - USA STESSA LOGICA DELLA CREAZIONE"""
     try:
         print(f"🔧 DEBUG - Modify date parameters: {parameters}")
         
@@ -85,6 +85,7 @@ def handle_modify_reservation_date(parameters):
         old_date = reservation.get('Date', '')
         old_time = reservation.get('Time', '')
         guests = reservation.get('Guests', 2)
+        old_table = reservation.get('Table', 1)
         
         # Formatta la nuova data
         try:
@@ -93,10 +94,24 @@ def handle_modify_reservation_date(parameters):
             print(f"❌ Error formatting new date: {e}")
             formatted_new_date = str(new_date)
         
-        # Controlla disponibilità per la nuova data
+        # Se è la stessa data, non fare nulla
+        if formatted_new_date == old_date:
+            return jsonify({
+                'fulfillmentText': f"Your reservation is already on {old_date}. No changes needed!"
+            })
+        
+        # 🔧 CORREZIONE: USA LA STESSA LOGICA DELLA CREAZIONE!
+        # Controlla disponibilità esattamente come nella creazione
+        print(f"🔧 DEBUG - Using CREATION logic: checking availability for {guests} guests on {formatted_new_date}")
+        
         try:
             day_of_week, hour_of_day = parse_dialogflow_datetime(new_date, old_time)
+            
+            # 🔧 USA find_available_table (stessa della creazione) NON find_available_table_for_modification
             result = find_available_table(int(guests), day_of_week, hour_of_day)
+            
+            print(f"🔧 DEBUG - Creation logic result: {result}")
+            
         except Exception as e:
             print(f"❌ Error checking availability: {e}")
             return jsonify({
@@ -104,13 +119,13 @@ def handle_modify_reservation_date(parameters):
             })
         
         if result['available']:
-            # Aggiorna la data e potenzialmente il tavolo
+            # Se c'è disponibilità, procedi con l'aggiornamento
             new_table = result['table_number']
             
             # Aggiorna data
             date_updated = update_reservation_field(phone, old_date, old_time, 'date', formatted_new_date)
             
-            # Aggiorna tavolo se necessario
+            # Aggiorna tavolo
             table_updated = update_reservation_field(phone, formatted_new_date, old_time, 'table', new_table)
             
             if date_updated and table_updated:
@@ -134,7 +149,7 @@ def handle_modify_reservation_date(parameters):
                         },
                         {
                             "text": {
-                                "text": [f"📅 New Date: {formatted_new_date}"]
+                                "text": [f"📅 New Date: {formatted_new_date} (was {old_date})"]
                             }
                         },
                         {
@@ -169,7 +184,7 @@ def handle_modify_reservation_date(parameters):
         return jsonify({'fulfillmentText': f'Sorry, error modifying your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'})
 
 def handle_modify_reservation_time(parameters):
-    """Gestisce modifica dell'orario di prenotazione - VERSIONE CORRETTA CON CONTROLLO REALE"""
+    """Gestisce modifica dell'orario di prenotazione - USA STESSA LOGICA DELLA CREAZIONE"""
     try:
         print(f"🔧 DEBUG - Modify time parameters: {parameters}")
         
@@ -177,7 +192,6 @@ def handle_modify_reservation_time(parameters):
         phone_raw = parameters.get('phone_number', parameters.get('phone', ''))
         phone = extract_value(phone_raw)
         
-        # 🔧 CORREZIONE: Aggiungi più chiavi per trovare il nuovo orario
         new_time_raw = parameters.get('new_time', 
                       parameters.get('time', 
                       parameters.get('hour_of_day',
@@ -187,7 +201,6 @@ def handle_modify_reservation_time(parameters):
         new_time = extract_value(new_time_raw)
         
         print(f"🔧 DEBUG - Extracted: phone={phone}, new_time={new_time}")
-        print(f"🔧 DEBUG - All parameters keys: {list(parameters.keys())}")
         
         if not phone:
             return jsonify({
@@ -218,14 +231,10 @@ def handle_modify_reservation_time(parameters):
         guests = reservation.get('Guests', 2)
         old_table = reservation.get('Table', 1)
         
-        # 🔧 CORREZIONE: Assicurati che guests sia un numero
         try:
             guest_count = int(guests)
         except (ValueError, TypeError):
-            guest_count = 2  # Default
-        
-        print(f"🔧 DEBUG - Current reservation: {guest_count} guests at {old_time} (table {old_table})")
-        print(f"🔧 DEBUG - Requested change to: {new_time}")
+            guest_count = 2
         
         # Formatta il nuovo orario
         try:
@@ -234,27 +243,23 @@ def handle_modify_reservation_time(parameters):
             print(f"❌ Error formatting new time: {e}")
             formatted_new_time = str(new_time)
         
-        # 🔧 CORREZIONE PRINCIPALE: Controlla se è lo stesso orario
+        # Se è lo stesso orario, non fare nulla
         if formatted_new_time == old_time:
             return jsonify({
                 'fulfillmentText': f"Your reservation is already at {old_time}. No changes needed!"
             })
         
-        # Controlla disponibilità per il nuovo orario
-        print(f"🔧 DEBUG - Checking availability for {guest_count} guests at {formatted_new_time}")
+        # 🔧 CORREZIONE: USA LA STESSA LOGICA DELLA CREAZIONE!
+        # Controlla disponibilità esattamente come nella creazione
+        print(f"🔧 DEBUG - Using CREATION logic: checking availability for {guest_count} guests at {formatted_new_time}")
         
         try:
             day_of_week, hour_of_day = parse_dialogflow_datetime(old_date, new_time)
             
-            # 🔧 CORREZIONE: Usa la funzione corretta che controlla davvero la disponibilità
-            result = find_available_table_for_modification(
-                guest_count, 
-                day_of_week, 
-                hour_of_day, 
-                exclude_table=int(old_table)  # Passa il tavolo attuale ma non lo escludi dal controllo
-            )
+            # 🔧 USA find_available_table (stessa della creazione) NON find_available_table_for_modification
+            result = find_available_table(guest_count, day_of_week, hour_of_day)
             
-            print(f"🔧 DEBUG - Availability result: {result}")
+            print(f"🔧 DEBUG - Creation logic result: {result}")
             
         except Exception as e:
             print(f"❌ Error checking availability: {e}")
@@ -262,68 +267,67 @@ def handle_modify_reservation_time(parameters):
                 'fulfillmentText': f"Sorry, I'm having trouble checking availability for the new time."
             })
         
-        # 🔧 CORREZIONE: Se NON c'è disponibilità, rifiuta la modifica
-        if not result['available']:
-            return jsonify({
-                'fulfillmentText': f"Sorry, we don't have availability for {guest_count} guests on {old_date} at {formatted_new_time}. Please try a different time."
-            })
-        
-        # Se c'è disponibilità, procedi con l'aggiornamento
-        new_table = result['table_number']
-        
-        print(f"🔧 DEBUG - Updating time to {formatted_new_time} and table to {new_table}")
-        
-        # Aggiorna orario
-        time_updated = update_reservation_field(phone, old_date, old_time, 'time', formatted_new_time)
-        
-        # Aggiorna tavolo se necessario
-        table_updated = update_reservation_field(phone, old_date, formatted_new_time, 'table', new_table)
-        
-        if time_updated and table_updated:
-            rich_response = {
-                "fulfillmentText": "✅ Time updated successfully!",
-                "fulfillmentMessages": [
-                    {
-                        "text": {
-                            "text": ["✅ Reservation time updated successfully!"]
+        if result['available']:
+            # Se c'è disponibilità, procedi con l'aggiornamento
+            new_table = result['table_number']
+            
+            print(f"🔧 DEBUG - Updating time to {formatted_new_time} and table to {new_table}")
+            
+            # Aggiorna orario
+            time_updated = update_reservation_field(phone, old_date, old_time, 'time', formatted_new_time)
+            
+            # Aggiorna tavolo
+            table_updated = update_reservation_field(phone, old_date, formatted_new_time, 'table', new_table)
+            
+            if time_updated and table_updated:
+                rich_response = {
+                    "fulfillmentText": "✅ Time updated successfully!",
+                    "fulfillmentMessages": [
+                        {
+                            "text": {
+                                "text": ["✅ Reservation time updated successfully!"]
+                            }
+                        },
+                        {
+                            "text": {
+                                "text": ["📋 Updated reservation details:"]
+                            }
+                        },
+                        {
+                            "text": {
+                                "text": [f"👤 Name: {reservation.get('Name', '')}"]
+                            }
+                        },
+                        {
+                            "text": {
+                                "text": [f"📅 Date: {old_date}"]
+                            }
+                        },
+                        {
+                            "text": {
+                                "text": [f"🕐 New Time: {formatted_new_time} (was {old_time})"]
+                            }
+                        },
+                        {
+                            "text": {
+                                "text": [f"👥 Guests: {guest_count}"]
+                            }
+                        },
+                        {
+                            "text": {
+                                "text": [f"🪑 Table: {new_table}"]
+                            }
                         }
-                    },
-                    {
-                        "text": {
-                            "text": ["📋 Updated reservation details:"]
-                        }
-                    },
-                    {
-                        "text": {
-                            "text": [f"👤 Name: {reservation.get('Name', '')}"]
-                        }
-                    },
-                    {
-                        "text": {
-                            "text": [f"📅 Date: {old_date}"]
-                        }
-                    },
-                    {
-                        "text": {
-                            "text": [f"🕐 New Time: {formatted_new_time} (was {old_time})"]
-                        }
-                    },
-                    {
-                        "text": {
-                            "text": [f"👥 Guests: {guest_count}"]
-                        }
-                    },
-                    {
-                        "text": {
-                            "text": [f"🪑 Table: {new_table}"]
-                        }
-                    }
-                ]
-            }
-            return jsonify(rich_response)
+                    ]
+                }
+                return jsonify(rich_response)
+            else:
+                return jsonify({
+                    'fulfillmentText': f"Sorry, there was an issue updating your reservation. Please call us at {RESTAURANT_INFO['phone']}."
+                })
         else:
             return jsonify({
-                'fulfillmentText': f"Sorry, there was an issue updating your reservation. Please call us at {RESTAURANT_INFO['phone']}."
+                'fulfillmentText': f"Sorry, we don't have availability for {guest_count} guests on {old_date} at {formatted_new_time}. Please try a different time."
             })
             
     except Exception as e:
@@ -390,15 +394,14 @@ def find_available_table_for_modification(guest_count, day_of_week, hour_of_day,
         }
         
 def handle_modify_reservation_guests(parameters):
-    """Gestisce modifica del numero di ospiti - VERSIONE CORRETTA CON CONTROLLO REALE"""
+    """Gestisce modifica del numero di ospiti - USA STESSA LOGICA DELLA CREAZIONE"""
     try:
         print(f"🔧 DEBUG - Modify guests parameters: {parameters}")
         
-        # Estrai parametri con più opzioni
+        # Estrai parametri
         phone_raw = parameters.get('phone_number', parameters.get('phone', ''))
         phone = extract_value(phone_raw)
         
-        # 🔧 CORREZIONE: Aggiungi più chiavi per trovare il numero di ospiti
         new_guests_raw = parameters.get('new_guests', 
                          parameters.get('guests', 
                          parameters.get('number', 
@@ -409,7 +412,6 @@ def handle_modify_reservation_guests(parameters):
         new_guests = extract_value(new_guests_raw)
         
         print(f"🔧 DEBUG - Extracted: phone={phone}, new_guests={new_guests}")
-        print(f"🔧 DEBUG - All parameters keys: {list(parameters.keys())}")
         
         if not phone:
             return jsonify({
@@ -421,17 +423,14 @@ def handle_modify_reservation_guests(parameters):
                 'fulfillmentText': "Please specify the new number of guests for your reservation."
             })
         
-        # 🔧 CORREZIONE: Migliora conversione numero ospiti
+        # Conversione numero ospiti (stessa logica della creazione)
         try:
-            # Prima pulisci la stringa
             guest_str = str(new_guests).strip().lower()
             
-            # Rimuovi parole comuni
             for word in ['guests', 'people', 'persons', 'guest', 'person']:
                 guest_str = guest_str.replace(word, '')
             guest_str = guest_str.strip()
             
-            # Converti parole in numeri
             word_to_num = {
                 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
                 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
@@ -442,7 +441,6 @@ def handle_modify_reservation_guests(parameters):
             if guest_str in word_to_num:
                 guest_count = word_to_num[guest_str]
             else:
-                # Prova conversione numerica
                 guest_count = int(float(guest_str))
             
             if guest_count < 1 or guest_count > 20:
@@ -475,29 +473,26 @@ def handle_modify_reservation_guests(parameters):
         old_guests = reservation.get('Guests', 2)
         old_table = reservation.get('Table', 1)
         
-        print(f"🔧 DEBUG - Current reservation: {old_guests} guests at table {old_table}")
+        print(f"🔧 DEBUG - Current reservation: {old_guests} guests")
         print(f"🔧 DEBUG - Requested change to: {guest_count} guests")
         
-        # 🔧 CORREZIONE: Se è lo stesso numero di ospiti, non fare nulla
+        # Se è lo stesso numero di ospiti, non fare nulla
         if guest_count == int(old_guests):
             return jsonify({
                 'fulfillmentText': f"Your reservation is already for {old_guests} guests. No changes needed!"
             })
         
-        # 🔧 CORREZIONE PRINCIPALE: SEMPRE controllare disponibilità, anche se riduci
-        # Il fatto che riduci non garantisce che ci sia disponibilità in quel nuovo slot!
-        print(f"🔧 DEBUG - Checking availability for {guest_count} guests at {old_date} {old_time}")
+        # 🔧 CORREZIONE: USA LA STESSA LOGICA DELLA CREAZIONE!
+        # Controlla disponibilità esattamente come nella creazione
+        print(f"🔧 DEBUG - Using CREATION logic: checking availability for {guest_count} guests")
         
         try:
             day_of_week, hour_of_day = parse_dialogflow_datetime(old_date, old_time)
-            result = find_available_table_for_modification(
-                guest_count, 
-                day_of_week, 
-                hour_of_day, 
-                exclude_table=int(old_table)
-            )
             
-            print(f"🔧 DEBUG - Availability result: {result}")
+            # 🔧 USA find_available_table (stessa della creazione) NON find_available_table_for_modification
+            result = find_available_table(guest_count, day_of_week, hour_of_day)
+            
+            print(f"🔧 DEBUG - Creation logic result: {result}")
             
         except Exception as e:
             print(f"❌ Error checking availability: {e}")
@@ -505,66 +500,65 @@ def handle_modify_reservation_guests(parameters):
                 'fulfillmentText': f"Sorry, I'm having trouble checking availability for {guest_count} guests."
             })
         
-        # 🔧 CORREZIONE: Se NON c'è disponibilità, rifiuta la modifica
-        if not result['available']:
-            return jsonify({
-                'fulfillmentText': f"Sorry, we don't have availability for {guest_count} guests on {old_date} at {old_time}. Please try a different time or date."
-            })
-        
-        # Se c'è disponibilità, procedi con l'aggiornamento
-        new_table = result['table_number']
-        
-        # Aggiorna numero ospiti
-        guests_updated = update_reservation_field(phone, old_date, old_time, 'guests', guest_count)
-        
-        # Aggiorna tavolo se necessario
-        table_updated = update_reservation_field(phone, old_date, old_time, 'table', new_table)
-        
-        if guests_updated and table_updated:
-            rich_response = {
-                "fulfillmentText": "✅ Guest count updated successfully!",
-                "fulfillmentMessages": [
-                    {
-                        "text": {
-                            "text": ["✅ Number of guests updated successfully!"]
+        if result['available']:
+            # Se c'è disponibilità, procedi con l'aggiornamento
+            new_table = result['table_number']
+            
+            # Aggiorna numero ospiti
+            guests_updated = update_reservation_field(phone, old_date, old_time, 'guests', guest_count)
+            
+            # Aggiorna tavolo
+            table_updated = update_reservation_field(phone, old_date, old_time, 'table', new_table)
+            
+            if guests_updated and table_updated:
+                rich_response = {
+                    "fulfillmentText": "✅ Guest count updated successfully!",
+                    "fulfillmentMessages": [
+                        {
+                            "text": {
+                                "text": ["✅ Number of guests updated successfully!"]
+                            }
+                        },
+                        {
+                            "text": {
+                                "text": ["📋 Updated reservation details:"]
+                            }
+                        },
+                        {
+                            "text": {
+                                "text": [f"👤 Name: {reservation.get('Name', '')}"]
+                            }
+                        },
+                        {
+                            "text": {
+                                "text": [f"📅 Date: {old_date}"]
+                            }
+                        },
+                        {
+                            "text": {
+                                "text": [f"🕐 Time: {old_time}"]
+                            }
+                        },
+                        {
+                            "text": {
+                                "text": [f"👥 New Guest Count: {guest_count} (was {old_guests})"]
+                            }
+                        },
+                        {
+                            "text": {
+                                "text": [f"🪑 Table: {new_table}"]
+                            }
                         }
-                    },
-                    {
-                        "text": {
-                            "text": ["📋 Updated reservation details:"]
-                        }
-                    },
-                    {
-                        "text": {
-                            "text": [f"👤 Name: {reservation.get('Name', '')}"]
-                        }
-                    },
-                    {
-                        "text": {
-                            "text": [f"📅 Date: {old_date}"]
-                        }
-                    },
-                    {
-                        "text": {
-                            "text": [f"🕐 Time: {old_time}"]
-                        }
-                    },
-                    {
-                        "text": {
-                            "text": [f"👥 New Guest Count: {guest_count} (was {old_guests})"]
-                        }
-                    },
-                    {
-                        "text": {
-                            "text": [f"🪑 Table: {new_table}"]
-                        }
-                    }
-                ]
-            }
-            return jsonify(rich_response)
+                    ]
+                }
+                return jsonify(rich_response)
+            else:
+                return jsonify({
+                    'fulfillmentText': f"Sorry, there was an issue updating your reservation. Please call us at {RESTAURANT_INFO['phone']}."
+                })
         else:
             return jsonify({
-                'fulfillmentText': f"Sorry, there was an issue updating your reservation. Please call us at {RESTAURANT_INFO['phone']}."
+                'fulfillmentText': f"Sorry, we don't have availability for {guest_count} guests on {old_date} at {old_time}. Please try a different time or date."
             })
             
     except Exception as e:
