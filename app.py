@@ -219,7 +219,23 @@ def handle_modify_reservation_time(parameters):
         # Controlla disponibilità per il nuovo orario
         try:
             day_of_week, hour_of_day = parse_dialogflow_datetime(old_date, new_time)
+            
+            # 🔧 DEBUG LOGS - INDENTAZIONE CORRETTA
+            print(f"🔧 DEBUG ML INPUT (MODIFY TIME):")
+            print(f"  old_date: {old_date}")
+            print(f"  new_time: {new_time}")
+            print(f"  guests: {guests}")
+            print(f"  day_of_week: {day_of_week}")  
+            print(f"  hour_of_day: {hour_of_day}")
+            print(f"  ML results for first 5 tables:")
+            
+            for table_num in range(1, 6):
+                ml_result = check_table_availability(table_num, int(guests), day_of_week, hour_of_day)
+                print(f"    Table {table_num}: {'AVAILABLE' if ml_result else 'OCCUPIED'}")
+            
             result = find_available_table(int(guests), day_of_week, hour_of_day)
+            print(f"  Final result: {result}")
+            
         except Exception as e:
             print(f"❌ Error checking availability: {e}")
             return jsonify({
@@ -292,7 +308,7 @@ def handle_modify_reservation_time(parameters):
         return jsonify({'fulfillmentText': f'Sorry, error modifying your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'})
 
 def handle_modify_reservation_guests(parameters):
-    """Gestisce modifica del numero di ospiti"""
+    """Gestisce modifica del numero di ospiti - VERSIONE CON DEBUG ESTESO"""
     try:
         print(f"🔧 DEBUG - Modify guests parameters: {parameters}")
         
@@ -344,12 +360,40 @@ def handle_modify_reservation_guests(parameters):
         old_time = reservation.get('Time', '')
         old_guests = reservation.get('Guests', 2)
         
+        print(f"🔧 DEBUG - Found reservation:")
+        print(f"    old_date: '{old_date}' (type: {type(old_date)})")
+        print(f"    old_time: '{old_time}' (type: {type(old_time)})")
+        print(f"    old_guests: '{old_guests}' (type: {type(old_guests)})")
+        print(f"    new_guests: {guest_count}")
+        
         # Controlla disponibilità per il nuovo numero di ospiti
         try:
+            print(f"🔧 DEBUG - About to parse datetime with:")
+            print(f"    date_param: '{old_date}'")
+            print(f"    time_param: '{old_time}'")
+            
             day_of_week, hour_of_day = parse_dialogflow_datetime(old_date, old_time)
+            
+            print(f"🔧 DEBUG - Parsed datetime result:")
+            print(f"    day_of_week: {day_of_week}")
+            print(f"    hour_of_day: {hour_of_day}")
+            
+            print(f"🔧 DEBUG - About to check table availability with:")
+            print(f"    guest_count: {guest_count}")
+            print(f"    day_of_week: {day_of_week}")
+            print(f"    hour_of_day: {hour_of_day}")
+            
             result = find_available_table(guest_count, day_of_week, hour_of_day)
+            
+            print(f"🔧 DEBUG - Availability check result:")
+            print(f"    available: {result['available']}")
+            print(f"    table_number: {result.get('table_number')}")
+            print(f"    total_available: {result.get('total_available')}")
+            
         except Exception as e:
             print(f"❌ Error checking availability: {e}")
+            import traceback
+            print(f"❌ TRACEBACK: {traceback.format_exc()}")
             return jsonify({
                 'fulfillmentText': f"Sorry, I'm having trouble checking availability for {guest_count} guests."
             })
@@ -358,11 +402,22 @@ def handle_modify_reservation_guests(parameters):
             # Aggiorna il numero di ospiti e potenzialmente il tavolo
             new_table = result['table_number']
             
+            print(f"🔧 DEBUG - Updating reservation:")
+            print(f"    phone: {phone}")
+            print(f"    old_date: {old_date}")
+            print(f"    old_time: {old_time}")
+            print(f"    new_guests: {guest_count}")
+            print(f"    new_table: {new_table}")
+            
             # Aggiorna numero ospiti
             guests_updated = update_reservation_field(phone, old_date, old_time, 'guests', guest_count)
             
             # Aggiorna tavolo se necessario
             table_updated = update_reservation_field(phone, old_date, old_time, 'table', new_table)
+            
+            print(f"🔧 DEBUG - Update results:")
+            print(f"    guests_updated: {guests_updated}")
+            print(f"    table_updated: {table_updated}")
             
             if guests_updated and table_updated:
                 rich_response = {
@@ -411,12 +466,19 @@ def handle_modify_reservation_guests(parameters):
                     'fulfillmentText': f"Sorry, there was an issue updating your reservation. Please call us at {RESTAURANT_INFO['phone']}."
                 })
         else:
+            print(f"🔧 DEBUG - NO AVAILABILITY FOUND!")
+            print(f"    Requested: {guest_count} guests")
+            print(f"    Date: {old_date} (parsed as day_of_week: {day_of_week})")
+            print(f"    Time: {old_time} (parsed as hour_of_day: {hour_of_day})")
+            
             return jsonify({
                 'fulfillmentText': f"Sorry, we don't have availability for {guest_count} guests on {old_date} at {old_time}. Please try a different time or date."
             })
             
     except Exception as e:
         print(f"❌ Error in modify_reservation_guests: {e}")
+        import traceback
+        print(f"❌ TRACEBACK: {traceback.format_exc()}")
         return jsonify({'fulfillmentText': f'Sorry, error modifying your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'})
 
 def update_reservation_field(phone, old_date, old_time, field, new_value):
@@ -1182,30 +1244,59 @@ def convert_day_to_number(day_name):
     }
     return days.get(str(day_name).lower(), 5)  # Default Saturday
 
-def convert_time_to_hour(time_str):
-    """Converte time string in hour per ML"""
+def convert_time_to_hour_improved(time_str):
+    """Versione migliorata per convertire time string in hour per ML"""
     try:
         time_str = str(time_str).lower().strip()
+        print(f"🔧 DEBUG - convert_time_to_hour_improved input: '{time_str}'")
+        
+        # Rimuovi spazi extra
+        time_str = ' '.join(time_str.split())
         
         # Gestisce PM/AM
         if 'pm' in time_str:
-            hour = int(time_str.replace('pm', '').split(':')[0].strip())
+            # Estrai l'ora
+            hour_part = time_str.replace('pm', '').strip()
+            if ':' in hour_part:
+                hour = int(hour_part.split(':')[0])
+            else:
+                hour = int(hour_part)
+            
+            # Converti in 24h
             if hour != 12:
                 hour += 12
+            print(f"🔧 DEBUG - PM conversion: {hour}")
+            
         elif 'am' in time_str:
-            hour = int(time_str.replace('am', '').split(':')[0].strip())
+            # Estrai l'ora  
+            hour_part = time_str.replace('am', '').strip()
+            if ':' in hour_part:
+                hour = int(hour_part.split(':')[0])
+            else:
+                hour = int(hour_part)
+            
+            # Converti 12 AM in 0
             if hour == 12:
                 hour = 0
+            print(f"🔧 DEBUG - AM conversion: {hour}")
+            
         else:
             # Formato 24h o semplice numero
             if ':' in time_str:
                 hour = int(time_str.split(':')[0])
             else:
                 hour = int(time_str)
+            print(f"🔧 DEBUG - 24h conversion: {hour}")
         
         # Controllo orari validi (9-21 = 9AM-9PM)
-        return hour if 9 <= hour <= 21 else 19  # Default 7PM
-    except:
+        if 9 <= hour <= 21:
+            return hour
+        else:
+            print(f"⚠️ Hour {hour} outside restaurant hours (9-21), using default 19")
+            return 19  # Default 7PM
+            
+    except Exception as e:
+        print(f"❌ Error in convert_time_to_hour_improved: {e}")
         return 19  # Default 7PM
 
 def check_table_availability(table_number, guest_count, day_of_week, hour_of_day):
@@ -1440,29 +1531,86 @@ def handle_check_table_specific(parameters):
         return jsonify({'fulfillmentText': 'Sorry, error checking table availability. Please call us.'})
 
 def parse_dialogflow_datetime(date_param, time_param):
-    """Parse date/time da Dialogflow"""
+    """Parse date/time da Dialogflow E da Google Sheets - VERSIONE CORRETTA"""
     try:
         day_of_week = 5  # Default Saturday
         hour_of_day = 19  # Default 7PM
         
+        print(f"🔧 DEBUG - parse_dialogflow_datetime input: date='{date_param}', time='{time_param}'")
+        
+        # PARSING DATA
         if date_param:
-            date_str = str(date_param)
+            date_str = str(date_param).strip()
+            print(f"🔧 DEBUG - Processing date: '{date_str}'")
+            
             if 'T' in date_str:
+                # Formato ISO da Dialogflow (2025-06-23T12:00:00+02:00)
                 clean_date = date_str.split('T')[0]
-                from datetime import datetime
                 parsed_date = datetime.strptime(clean_date, '%Y-%m-%d')
                 day_of_week = parsed_date.weekday()
+                print(f"🔧 DEBUG - Parsed ISO date, weekday: {day_of_week}")
+                
+            elif len(date_str) == 10 and date_str.count('-') == 2:
+                # Formato YYYY-MM-DD
+                parsed_date = datetime.strptime(date_str, '%Y-%m-%d')
+                day_of_week = parsed_date.weekday()
+                print(f"🔧 DEBUG - Parsed YYYY-MM-DD date, weekday: {day_of_week}")
+                
+            elif ',' in date_str:
+                # Formato leggibile da Google Sheets (Monday, June 23, 2025)
+                try:
+                    # Prima prova il formato completo
+                    parsed_date = datetime.strptime(date_str, '%A, %B %d, %Y')
+                    day_of_week = parsed_date.weekday()
+                    print(f"🔧 DEBUG - Parsed readable date format 1, weekday: {day_of_week}")
+                except ValueError:
+                    try:
+                        # Prova formato alternativo senza giorno della settimana
+                        parsed_date = datetime.strptime(date_str, '%B %d, %Y')
+                        day_of_week = parsed_date.weekday()
+                        print(f"🔧 DEBUG - Parsed readable date format 2, weekday: {day_of_week}")
+                    except ValueError:
+                        print(f"❌ Could not parse date format: {date_str}")
+                        # Mantieni default
+            else:
+                print(f"❌ Unknown date format: {date_str}")
         
+        # PARSING ORARIO  
         if time_param:
-            time_str = str(time_param)
+            time_str = str(time_param).strip()
+            print(f"🔧 DEBUG - Processing time: '{time_str}'")
+            
             if 'T' in time_str:
+                # Formato ISO da Dialogflow
                 time_part = time_str.split('T')[1].split('+')[0]
                 hour_of_day = int(time_part.split(':')[0])
+                print(f"🔧 DEBUG - Parsed ISO time, hour: {hour_of_day}")
+                
+            elif 'AM' in time_str.upper() or 'PM' in time_str.upper():
+                # Formato 12h da Google Sheets (12:00 PM)
+                hour_of_day = convert_time_to_hour_improved(time_str)
+                print(f"🔧 DEBUG - Parsed 12h time, hour: {hour_of_day}")
+                
+            elif ':' in time_str:
+                # Formato 24h (19:30)
+                hour_of_day = int(time_str.split(':')[0])
+                print(f"🔧 DEBUG - Parsed 24h time, hour: {hour_of_day}")
+                
             else:
-                hour_of_day = convert_time_to_hour(time_str)
+                # Solo numero (19)
+                try:
+                    hour_of_day = int(time_str)
+                    print(f"🔧 DEBUG - Parsed simple hour: {hour_of_day}")
+                except ValueError:
+                    print(f"❌ Could not parse time: {time_str}")
         
+        print(f"🔧 DEBUG - Final result: day_of_week={day_of_week}, hour_of_day={hour_of_day}")
         return day_of_week, hour_of_day
-    except:
+        
+    except Exception as e:
+        print(f"❌ Error in parse_dialogflow_datetime: {e}")
+        import traceback
+        print(f"❌ TRACEBACK: {traceback.format_exc()}")
         return 5, 19
 
 def format_date_readable(date_string):
@@ -1663,7 +1811,23 @@ def handle_make_reservation(parameters):
         # Controlla disponibilità
         try:
             day_of_week, hour_of_day = parse_dialogflow_datetime(date, time)
+            
+            # 🔧 DEBUG LOGS - INDENTAZIONE CORRETTA
+            print(f"🔧 DEBUG ML INPUT (CREATE RESERVATION):")
+            print(f"  date: {date}")
+            print(f"  time: {time}")
+            print(f"  guest_count: {guest_count}")
+            print(f"  day_of_week: {day_of_week}")  
+            print(f"  hour_of_day: {hour_of_day}")
+            print(f"  ML results for first 5 tables:")
+            
+            for table_num in range(1, 6):
+                ml_result = check_table_availability(table_num, guest_count, day_of_week, hour_of_day)
+                print(f"    Table {table_num}: {'AVAILABLE' if ml_result else 'OCCUPIED'}")
+            
             result = find_available_table(guest_count, day_of_week, hour_of_day)
+            print(f"  Final result: {result}")
+            
         except Exception as e:
             print(f"❌ Error checking availability: {e}")
             return jsonify({
