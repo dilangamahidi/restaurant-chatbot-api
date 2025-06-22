@@ -1622,24 +1622,38 @@ def handle_check_table_specific(parameters):
         return jsonify({'fulfillmentText': 'Sorry, error checking table availability. Please call us.'})
 
 def parse_dialogflow_datetime(date_param, time_param):
-    """Parse date/time da Dialogflow E da Google Sheets - VERSIONE CORRETTA"""
+    """Parse date/time da Dialogflow E da Google Sheets - FIX PER TUESDAY BUG"""
     try:
         day_of_week = 5  # Default Saturday
         hour_of_day = 19  # Default 7PM
         
         print(f"🔧 DEBUG - parse_dialogflow_datetime input: date='{date_param}', time='{time_param}'")
+        print(f"🔧 DEBUG - date_param type: {type(date_param)}, time_param type: {type(time_param)}")
         
-        # PARSING DATA
+        # PARSING DATA - MIGLIORATO CON FIX TUESDAY
         if date_param:
             date_str = str(date_param).strip()
             print(f"🔧 DEBUG - Processing date: '{date_str}'")
             
-            if 'T' in date_str:
+            # 🚨 FIX CRITICO: Controlla formato ISO in modo più specifico
+            # Non basta 'T' in date_str perché "Tuesday" inizia con T!
+            # Deve essere formato YYYY-MM-DDTHH:MM:SS
+            is_iso_format = (
+                'T' in date_str and 
+                len(date_str) > 10 and 
+                date_str[4] == '-' and 
+                date_str[7] == '-' and
+                date_str[10] == 'T'
+            )
+            
+            print(f"🔧 DEBUG - is_iso_format check: {is_iso_format}")
+            
+            if is_iso_format:
                 # Formato ISO da Dialogflow (2025-06-23T12:00:00+02:00)
                 clean_date = date_str.split('T')[0]
                 parsed_date = datetime.strptime(clean_date, '%Y-%m-%d')
                 day_of_week = parsed_date.weekday()
-                print(f"🔧 DEBUG - Parsed ISO date, weekday: {day_of_week}")
+                print(f"🔧 DEBUG - Parsed ISO date: {clean_date}, weekday: {day_of_week}")
                 
             elif len(date_str) == 10 and date_str.count('-') == 2:
                 # Formato YYYY-MM-DD
@@ -1648,44 +1662,86 @@ def parse_dialogflow_datetime(date_param, time_param):
                 print(f"🔧 DEBUG - Parsed YYYY-MM-DD date, weekday: {day_of_week}")
                 
             elif ',' in date_str:
-                # Formato leggibile da Google Sheets (Monday, June 23, 2025)
+                # Formato leggibile da Google Sheets (Tuesday, June 24, 2025)
+                print(f"🔧 DEBUG - Attempting to parse readable date: '{date_str}'")
+                
                 try:
-                    # Prima prova il formato completo
+                    # Prova il formato completo con giorno della settimana
                     parsed_date = datetime.strptime(date_str, '%A, %B %d, %Y')
                     day_of_week = parsed_date.weekday()
-                    print(f"🔧 DEBUG - Parsed readable date format 1, weekday: {day_of_week}")
-                except ValueError:
-                    try:
-                        # Prova formato alternativo senza giorno della settimana
-                        parsed_date = datetime.strptime(date_str, '%B %d, %Y')
+                    print(f"🔧 DEBUG - SUCCESS: Parsed readable format 1, date: {parsed_date}, weekday: {day_of_week}")
+                    
+                    # Verifica che il giorno della settimana corrisponda
+                    expected_day = date_str.split(',')[0].strip()
+                    actual_day = parsed_date.strftime('%A')
+                    if expected_day.lower() != actual_day.lower():
+                        print(f"⚠️ WARNING: Day mismatch! Expected: {expected_day}, Got: {actual_day}")
+                        # Usa il giorno calcolato dalla data, non quello nel nome
                         day_of_week = parsed_date.weekday()
-                        print(f"🔧 DEBUG - Parsed readable date format 2, weekday: {day_of_week}")
-                    except ValueError:
-                        print(f"❌ Could not parse date format: {date_str}")
-                        # Mantieni default
+                    else:
+                        print(f"✅ Day verification passed: {expected_day} = {actual_day}")
+                    
+                except ValueError as e1:
+                    print(f"🔧 DEBUG - Format 1 failed: {e1}")
+                    try:
+                        # Prova formato senza giorno della settimana
+                        date_without_day = date_str.split(',', 1)[1].strip() if ',' in date_str else date_str
+                        print(f"🔧 DEBUG - Trying format 2 with: '{date_without_day}'")
+                        parsed_date = datetime.strptime(date_without_day, '%B %d, %Y')
+                        day_of_week = parsed_date.weekday()
+                        print(f"🔧 DEBUG - SUCCESS: Parsed readable format 2, weekday: {day_of_week}")
+                        
+                    except ValueError as e2:
+                        print(f"🔧 DEBUG - Format 2 also failed: {e2}")
+                        
+                        # FALLBACK ROBUSTO: Estrai manualmente il giorno della settimana
+                        if ',' in date_str:
+                            day_name = date_str.split(',')[0].strip().lower()
+                            manual_day_mapping = {
+                                'monday': 0, 'tuesday': 1, 'wednesday': 2, 'thursday': 3,
+                                'friday': 4, 'saturday': 5, 'sunday': 6
+                            }
+                            
+                            if day_name in manual_day_mapping:
+                                day_of_week = manual_day_mapping[day_name]
+                                print(f"🔧 DEBUG - FALLBACK SUCCESS: Manual mapping '{day_name}' -> {day_of_week}")
+                            else:
+                                print(f"❌ Could not parse date format: {date_str}")
+                        else:
+                            print(f"❌ Could not parse date format: {date_str}")
+                            
             else:
                 print(f"❌ Unknown date format: {date_str}")
         
-        # PARSING ORARIO  
+        # PARSING ORARIO - RIMANE INVARIATO
         if time_param:
             time_str = str(time_param).strip()
             print(f"🔧 DEBUG - Processing time: '{time_str}'")
             
-            if 'T' in time_str:
+            # Stesso controllo migliorato per l'orario
+            is_iso_time_format = (
+                'T' in time_str and 
+                len(time_str) > 10 and 
+                time_str[4] == '-' and 
+                time_str[7] == '-' and
+                time_str[10] == 'T'
+            )
+            
+            if is_iso_time_format:
                 # Formato ISO da Dialogflow
-                time_part = time_str.split('T')[1].split('+')[0]
+                time_part = time_str.split('T')[1].split('+')[0].split('-')[0]  # Handle both +02:00 and -05:00
                 hour_of_day = int(time_part.split(':')[0])
-                print(f"🔧 DEBUG - Parsed ISO time, hour: {hour_of_day}")
+                print(f"🔧 DEBUG - Parsed ISO time: {time_part}, hour: {hour_of_day}")
                 
             elif 'AM' in time_str.upper() or 'PM' in time_str.upper():
                 # Formato 12h da Google Sheets (12:00 PM)
                 hour_of_day = convert_time_to_hour_improved(time_str)
-                print(f"🔧 DEBUG - Parsed 12h time, hour: {hour_of_day}")
+                print(f"🔧 DEBUG - Parsed 12h time: {time_str}, hour: {hour_of_day}")
                 
             elif ':' in time_str:
                 # Formato 24h (19:30)
                 hour_of_day = int(time_str.split(':')[0])
-                print(f"🔧 DEBUG - Parsed 24h time, hour: {hour_of_day}")
+                print(f"🔧 DEBUG - Parsed 24h time: {time_str}, hour: {hour_of_day}")
                 
             else:
                 # Solo numero (19)
@@ -1695,14 +1751,28 @@ def parse_dialogflow_datetime(date_param, time_param):
                 except ValueError:
                     print(f"❌ Could not parse time: {time_str}")
         
-        print(f"🔧 DEBUG - Final result: day_of_week={day_of_week}, hour_of_day={hour_of_day}")
+        # DEBUG FINALE
+        day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        day_name = day_names[day_of_week] if 0 <= day_of_week <= 6 else 'Invalid'
+        
+        print(f"🔧 DEBUG - FINAL RESULT: day_of_week={day_of_week} ({day_name}), hour_of_day={hour_of_day}")
+        
+        # VALIDAZIONE FINALE
+        if not (0 <= day_of_week <= 6):
+            print(f"⚠️ Invalid day_of_week: {day_of_week}, using default 5 (Saturday)")
+            day_of_week = 5
+            
+        if not (0 <= hour_of_day <= 23):
+            print(f"⚠️ Invalid hour_of_day: {hour_of_day}, using default 19 (7PM)")
+            hour_of_day = 19
+        
         return day_of_week, hour_of_day
         
     except Exception as e:
         print(f"❌ Error in parse_dialogflow_datetime: {e}")
         import traceback
         print(f"❌ TRACEBACK: {traceback.format_exc()}")
-        return 5, 19
+        return 5, 19  # Safe defaults
 
 def format_date_readable(date_string):
     """
