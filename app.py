@@ -332,15 +332,53 @@ def handle_modify_reservation_guests(parameters):
         
         # Converti numero ospiti
         try:
-            guest_count = int(new_guests)
-            if guest_count < 1 or guest_count > 20:
-                return jsonify({
-                    'fulfillmentText': "I can accommodate between 1 and 20 guests. Please specify a valid number."
-                })
-        except (ValueError, TypeError):
-            return jsonify({
-                'fulfillmentText': "Please provide a valid number of guests."
-            })
+    print(f"🔧 DEBUG - Converting new_guests: '{new_guests}' (type: {type(new_guests)})")
+    
+    if new_guests is None or new_guests == '':
+        print(f"🔧 DEBUG - new_guests is None or empty")
+        return jsonify({
+            'fulfillmentText': "Please specify the new number of guests for your reservation."
+        })
+    
+    # Pulisci il valore - rimuovi spazi e caratteri speciali
+    clean_guests = str(new_guests).strip()
+    print(f"🔧 DEBUG - Clean guests string: '{clean_guests}'")
+    
+    # Rimuovi parole comuni se presenti
+    clean_guests = clean_guests.replace('guests', '').replace('people', '').replace('persons', '').strip()
+    print(f"🔧 DEBUG - After removing words: '{clean_guests}'")
+    
+    # Converti parole in numeri se necessario
+    word_to_num = {
+        'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+        'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+        'eleven': 11, 'twelve': 12, 'thirteen': 13, 'fourteen': 14, 'fifteen': 15,
+        'sixteen': 16, 'seventeen': 17, 'eighteen': 18, 'nineteen': 19, 'twenty': 20
+    }
+    
+    if clean_guests.lower() in word_to_num:
+        guest_count = word_to_num[clean_guests.lower()]
+        print(f"🔧 DEBUG - Converted word to number: {guest_count}")
+    else:
+        # Prova conversione numerica diretta
+        guest_count = int(float(clean_guests))  # float() per gestire eventuali decimali
+        print(f"🔧 DEBUG - Converted string to number: {guest_count}")
+    
+    # Valida range
+    if guest_count < 1 or guest_count > 20:
+        print(f"🔧 DEBUG - Guest count {guest_count} out of range")
+        return jsonify({
+            'fulfillmentText': "I can accommodate between 1 and 20 guests. Please specify a valid number."
+        })
+        
+    print(f"🔧 DEBUG - Final guest_count: {guest_count}")
+    
+except (ValueError, TypeError) as e:
+    print(f"❌ Error converting guests '{new_guests}': {e}")
+    print(f"❌ Type: {type(new_guests)}, Raw value: {repr(new_guests)}")
+    return jsonify({
+        'fulfillmentText': f"Please provide a valid number of guests (you entered: '{new_guests}')."
+    })
         
         # Cerca prenotazione esistente
         user_reservations = get_user_reservations(phone)
