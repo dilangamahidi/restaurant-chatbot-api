@@ -216,6 +216,7 @@ def handle_modify_reservation_time(parameters):
         old_date = reservation.get('Date', '')
         old_time = reservation.get('Time', '')
         guests = reservation.get('Guests', 2)
+        old_table = reservation.get('Table', 1)  # 🔧 AGGIUNTO: tavolo attuale
         
         # 🔧 CORREZIONE: Assicurati che guests sia un numero
         try:
@@ -223,7 +224,7 @@ def handle_modify_reservation_time(parameters):
         except (ValueError, TypeError):
             guest_count = 2  # Default
         
-        print(f"🔧 DEBUG - Current reservation: {guest_count} guests at {old_time}")
+        print(f"🔧 DEBUG - Current reservation: {guest_count} guests at {old_time} (table {old_table})")
         print(f"🔧 DEBUG - Requested change to: {new_time}")
         
         # Formatta il nuovo orario
@@ -233,16 +234,23 @@ def handle_modify_reservation_time(parameters):
             print(f"❌ Error formatting new time: {e}")
             formatted_new_time = str(new_time)
         
-        # 🔧 CORREZIONE: Quando modifica una prenotazione esistente, 
-        # temporaneamente "libera" il tavolo attuale per il controllo
-        print(f"🔧 DEBUG - Checking availability for {guest_count} guests at {formatted_new_time}")
+        # 🔧 CORREZIONE PRINCIPALE: Usa find_available_table_for_modification
+        # che esclude temporaneamente il tavolo attuale dal controllo
+        print(f"🔧 DEBUG - Checking availability for {guest_count} guests at {formatted_new_time} (excluding current table {old_table})")
         
         # Controlla disponibilità per il nuovo orario
         try:
             day_of_week, hour_of_day = parse_dialogflow_datetime(old_date, new_time)
-            result = find_available_table(guest_count, day_of_week, hour_of_day)
             
-            print(f"🔧 DEBUG - Availability result: {result}")
+            # 🔧 CORREZIONE: Usa la funzione corretta per le modifiche
+            result = find_available_table_for_modification(
+                guest_count, 
+                day_of_week, 
+                hour_of_day, 
+                exclude_table=int(old_table)  # Escludi temporaneamente il tavolo attuale
+            )
+            
+            print(f"🔧 DEBUG - Availability result (excluding table {old_table}): {result}")
             
         except Exception as e:
             print(f"❌ Error checking availability: {e}")
@@ -318,26 +326,43 @@ def handle_modify_reservation_time(parameters):
         import traceback
         print(f"❌ TRACEBACK: {traceback.format_exc()}")
         return jsonify({'fulfillmentText': f'Sorry, error modifying your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'})
-
+        
 def find_available_table_for_modification(guest_count, day_of_week, hour_of_day, exclude_table=None):
     """
     Trova tavolo disponibile per modifiche - esclude il tavolo attuale dalla ricerca
+    VERSIONE MIGLIORATA CON DEBUG
     """
+    print(f"🔧 DEBUG - find_available_table_for_modification: guests={guest_count}, day={day_of_week}, hour={hour_of_day}, exclude_table={exclude_table}")
+    
     available_tables = []
     
-    # Controlla tutti i tavoli (1-20), escludendo quello attuale se specificato
+    # Controlla tutti i tavoli (1-20)
     for table_number in range(1, 21):
+        # Se stiamo escludendo un tavolo specifico, saltalo temporaneamente nel controllo
         if exclude_table and table_number == exclude_table:
-            continue  # Salta il tavolo attuale
+            print(f"🔧 DEBUG - Skipping current table {table_number} from availability check")
+            continue  # Salta il tavolo attuale dal controllo
             
         if check_table_availability(table_number, guest_count, day_of_week, hour_of_day):
             available_tables.append(table_number)
+            print(f"🔧 DEBUG - Table {table_number} is available")
+        else:
+            print(f"🔧 DEBUG - Table {table_number} is NOT available")
     
-    # Se non trova altri tavoli disponibili ma ha un tavolo da escludere,
+    # 🔧 CORREZIONE: Se non trova altri tavoli disponibili ma ha un tavolo da escludere,
     # considera anche quello (significa che può mantenere lo stesso tavolo)
     if not available_tables and exclude_table:
+        print(f"🔧 DEBUG - No other tables available, checking if current table {exclude_table} can be kept")
         if check_table_availability(exclude_table, guest_count, day_of_week, hour_of_day):
             available_tables.append(exclude_table)
+            print(f"🔧 DEBUG - Current table {exclude_table} can be kept")
+        else:
+            # Questo caso non dovrebbe mai accadere per una modifica,
+            # ma aggiungiamo il tavolo attuale comunque per sicurezza
+            available_tables.append(exclude_table)
+            print(f"🔧 DEBUG - Keeping current table {exclude_table} anyway (modification)")
+    
+    print(f"🔧 DEBUG - Available tables: {available_tables}")
     
     if available_tables:
         # Scegli il miglior tavolo per il numero di ospiti
@@ -351,12 +376,15 @@ def find_available_table_for_modification(guest_count, day_of_week, hour_of_day,
             large_tables = [t for t in available_tables if t >= 16]
             best_table = large_tables[0] if large_tables else available_tables[0]
         
+        print(f"🔧 DEBUG - Selected best table: {best_table}")
+        
         return {
             'available': True,
             'table_number': best_table,
             'total_available': len(available_tables)
         }
     else:
+        print(f"🔧 DEBUG - No tables available")
         return {
             'available': False,
             'table_number': None,
@@ -457,9 +485,14 @@ def handle_modify_reservation_guests(parameters):
         if guest_count <= int(old_guests):
             print(f"🔧 DEBUG - Reducing guests from {old_guests} to {guest_count} - always possible!")
             
-            # Trova il miglior tavolo per il nuovo numero di ospiti
+            # 🔧 CORREZIONE: Usa find_available_table_for_modification per trovare il miglior tavolo
             day_of_week, hour_of_day = parse_dialogflow_datetime(old_date, old_time)
-            result = find_available_table(guest_count, day_of_week, hour_of_day)
+            result = find_available_table_for_modification(
+                guest_count, 
+                day_of_week, 
+                hour_of_day, 
+                exclude_table=int(old_table)  # Considera anche il tavolo attuale come opzione
+            )
             
             # Se non trova tavoli disponibili, usa quello attuale (sempre possibile se riduci)
             if result['available']:
@@ -524,10 +557,18 @@ def handle_modify_reservation_guests(parameters):
         else:
             print(f"🔧 DEBUG - Increasing guests from {old_guests} to {guest_count} - checking availability")
             
-            # Controlla disponibilità per il nuovo numero di ospiti
+            # 🔧 CORREZIONE: Controlla disponibilità escludendo temporaneamente il tavolo attuale
             try:
                 day_of_week, hour_of_day = parse_dialogflow_datetime(old_date, old_time)
-                result = find_available_table(guest_count, day_of_week, hour_of_day)
+                result = find_available_table_for_modification(
+                    guest_count, 
+                    day_of_week, 
+                    hour_of_day, 
+                    exclude_table=int(old_table)  # Escludi temporaneamente il tavolo attuale
+                )
+                
+                print(f"🔧 DEBUG - Availability result (excluding table {old_table}): {result}")
+                
             except Exception as e:
                 print(f"❌ Error checking availability: {e}")
                 return jsonify({
