@@ -46,7 +46,7 @@ MENU = {
 }
 
 def handle_modify_reservation_date(parameters):
-    """Gestisce modifica della data di prenotazione - USA STESSA LOGICA DELLA CREAZIONE"""
+    """Gestisce modifica della data di prenotazione"""
     try:
         print(f"🔧 DEBUG - Modify date parameters: {parameters}")
         
@@ -85,7 +85,6 @@ def handle_modify_reservation_date(parameters):
         old_date = reservation.get('Date', '')
         old_time = reservation.get('Time', '')
         guests = reservation.get('Guests', 2)
-        old_table = reservation.get('Table', 1)
         
         # Formatta la nuova data
         try:
@@ -94,24 +93,10 @@ def handle_modify_reservation_date(parameters):
             print(f"❌ Error formatting new date: {e}")
             formatted_new_date = str(new_date)
         
-        # Se è la stessa data, non fare nulla
-        if formatted_new_date == old_date:
-            return jsonify({
-                'fulfillmentText': f"Your reservation is already on {old_date}. No changes needed!"
-            })
-        
-        # 🔧 CORREZIONE: USA LA STESSA LOGICA DELLA CREAZIONE!
-        # Controlla disponibilità esattamente come nella creazione
-        print(f"🔧 DEBUG - Using CREATION logic: checking availability for {guests} guests on {formatted_new_date}")
-        
+        # Controlla disponibilità per la nuova data
         try:
             day_of_week, hour_of_day = parse_dialogflow_datetime(new_date, old_time)
-            
-            # 🔧 USA find_available_table (stessa della creazione) NON find_available_table_for_modification
             result = find_available_table(int(guests), day_of_week, hour_of_day)
-            
-            print(f"🔧 DEBUG - Creation logic result: {result}")
-            
         except Exception as e:
             print(f"❌ Error checking availability: {e}")
             return jsonify({
@@ -119,13 +104,13 @@ def handle_modify_reservation_date(parameters):
             })
         
         if result['available']:
-            # Se c'è disponibilità, procedi con l'aggiornamento
+            # Aggiorna la data e potenzialmente il tavolo
             new_table = result['table_number']
             
             # Aggiorna data
             date_updated = update_reservation_field(phone, old_date, old_time, 'date', formatted_new_date)
             
-            # Aggiorna tavolo
+            # Aggiorna tavolo se necessario
             table_updated = update_reservation_field(phone, formatted_new_date, old_time, 'table', new_table)
             
             if date_updated and table_updated:
@@ -149,7 +134,7 @@ def handle_modify_reservation_date(parameters):
                         },
                         {
                             "text": {
-                                "text": [f"📅 New Date: {formatted_new_date} (was {old_date})"]
+                                "text": [f"📅 New Date: {formatted_new_date}"]
                             }
                         },
                         {
@@ -184,20 +169,14 @@ def handle_modify_reservation_date(parameters):
         return jsonify({'fulfillmentText': f'Sorry, error modifying your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'})
 
 def handle_modify_reservation_time(parameters):
-    """Gestisce modifica dell'orario di prenotazione - USA STESSA LOGICA DELLA CREAZIONE"""
+    """Gestisce modifica dell'orario di prenotazione"""
     try:
         print(f"🔧 DEBUG - Modify time parameters: {parameters}")
         
         # Estrai parametri
         phone_raw = parameters.get('phone_number', parameters.get('phone', ''))
         phone = extract_value(phone_raw)
-        
-        new_time_raw = parameters.get('new_time', 
-                      parameters.get('time', 
-                      parameters.get('hour_of_day',
-                      parameters.get('booking_time',
-                      parameters.get('reservation_time', '')))))
-        
+        new_time_raw = parameters.get('new_time', parameters.get('time', ''))
         new_time = extract_value(new_time_raw)
         
         print(f"🔧 DEBUG - Extracted: phone={phone}, new_time={new_time}")
@@ -229,12 +208,6 @@ def handle_modify_reservation_time(parameters):
         old_date = reservation.get('Date', '')
         old_time = reservation.get('Time', '')
         guests = reservation.get('Guests', 2)
-        old_table = reservation.get('Table', 1)
-        
-        try:
-            guest_count = int(guests)
-        except (ValueError, TypeError):
-            guest_count = 2
         
         # Formatta il nuovo orario
         try:
@@ -243,24 +216,10 @@ def handle_modify_reservation_time(parameters):
             print(f"❌ Error formatting new time: {e}")
             formatted_new_time = str(new_time)
         
-        # Se è lo stesso orario, non fare nulla
-        if formatted_new_time == old_time:
-            return jsonify({
-                'fulfillmentText': f"Your reservation is already at {old_time}. No changes needed!"
-            })
-        
-        # 🔧 CORREZIONE: USA LA STESSA LOGICA DELLA CREAZIONE!
-        # Controlla disponibilità esattamente come nella creazione
-        print(f"🔧 DEBUG - Using CREATION logic: checking availability for {guest_count} guests at {formatted_new_time}")
-        
+        # Controlla disponibilità per il nuovo orario
         try:
             day_of_week, hour_of_day = parse_dialogflow_datetime(old_date, new_time)
-            
-            # 🔧 USA find_available_table (stessa della creazione) NON find_available_table_for_modification
-            result = find_available_table(guest_count, day_of_week, hour_of_day)
-            
-            print(f"🔧 DEBUG - Creation logic result: {result}")
-            
+            result = find_available_table(int(guests), day_of_week, hour_of_day)
         except Exception as e:
             print(f"❌ Error checking availability: {e}")
             return jsonify({
@@ -268,15 +227,13 @@ def handle_modify_reservation_time(parameters):
             })
         
         if result['available']:
-            # Se c'è disponibilità, procedi con l'aggiornamento
+            # Aggiorna l'orario e potenzialmente il tavolo
             new_table = result['table_number']
-            
-            print(f"🔧 DEBUG - Updating time to {formatted_new_time} and table to {new_table}")
             
             # Aggiorna orario
             time_updated = update_reservation_field(phone, old_date, old_time, 'time', formatted_new_time)
             
-            # Aggiorna tavolo
+            # Aggiorna tavolo se necessario
             table_updated = update_reservation_field(phone, old_date, formatted_new_time, 'table', new_table)
             
             if time_updated and table_updated:
@@ -305,12 +262,12 @@ def handle_modify_reservation_time(parameters):
                         },
                         {
                             "text": {
-                                "text": [f"🕐 New Time: {formatted_new_time} (was {old_time})"]
+                                "text": [f"🕐 New Time: {formatted_new_time}"]
                             }
                         },
                         {
                             "text": {
-                                "text": [f"👥 Guests: {guest_count}"]
+                                "text": [f"👥 Guests: {guests}"]
                             }
                         },
                         {
@@ -327,88 +284,22 @@ def handle_modify_reservation_time(parameters):
                 })
         else:
             return jsonify({
-                'fulfillmentText': f"Sorry, we don't have availability for {guest_count} guests on {old_date} at {formatted_new_time}. Please try a different time."
+                'fulfillmentText': f"Sorry, we don't have availability for {guests} guests on {old_date} at {formatted_new_time}. Please try a different time."
             })
             
     except Exception as e:
         print(f"❌ Error in modify_reservation_time: {e}")
-        import traceback
-        print(f"❌ TRACEBACK: {traceback.format_exc()}")
         return jsonify({'fulfillmentText': f'Sorry, error modifying your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'})
-        
-def find_available_table_for_modification(guest_count, day_of_week, hour_of_day, exclude_table=None):
-    """
-    Trova tavolo disponibile per modifiche - VERSIONE CORRETTA CHE CONTROLLA DAVVERO LA DISPONIBILITÀ
-    """
-    print(f"🔧 DEBUG - find_available_table_for_modification: guests={guest_count}, day={day_of_week}, hour={hour_of_day}, exclude_table={exclude_table}")
-    
-    available_tables = []
-    
-    # Controlla tutti i tavoli (1-20)
-    for table_number in range(1, 21):
-        # 🔧 CORREZIONE: Non saltare il tavolo attuale nel controllo iniziale
-        # Dobbiamo controllare se ANCHE il tavolo attuale è disponibile nel nuovo slot
-        if check_table_availability(table_number, guest_count, day_of_week, hour_of_day):
-            available_tables.append(table_number)
-            print(f"🔧 DEBUG - Table {table_number} is available")
-        else:
-            print(f"🔧 DEBUG - Table {table_number} is NOT available")
-    
-    print(f"🔧 DEBUG - Available tables: {available_tables}")
-    
-    # 🔧 CORREZIONE PRINCIPALE: Se non ci sono tavoli disponibili, NON permettere la modifica!
-    if not available_tables:
-        print(f"🔧 DEBUG - NO TABLES AVAILABLE - modification should be rejected")
-        return {
-            'available': False,
-            'table_number': None,
-            'total_available': 0
-        }
-    
-    # Se ci sono tavoli disponibili, scegli il migliore
-    if available_tables:
-        # Se il tavolo attuale è disponibile nel nuovo slot, preferiscilo
-        if exclude_table and exclude_table in available_tables:
-            best_table = exclude_table
-            print(f"🔧 DEBUG - Current table {exclude_table} is available in new slot, keeping it")
-        else:
-            # Altrimenti scegli il miglior tavolo per il numero di ospiti
-            if guest_count <= 2:
-                small_tables = [t for t in available_tables if t <= 8]
-                best_table = small_tables[0] if small_tables else available_tables[0]
-            elif guest_count <= 4:
-                medium_tables = [t for t in available_tables if 9 <= t <= 15]
-                best_table = medium_tables[0] if medium_tables else available_tables[0]
-            else:
-                large_tables = [t for t in available_tables if t >= 16]
-                best_table = large_tables[0] if large_tables else available_tables[0]
-            
-            print(f"🔧 DEBUG - Current table not available, selected new table: {best_table}")
-        
-        print(f"🔧 DEBUG - Selected best table: {best_table}")
-        
-        return {
-            'available': True,
-            'table_number': best_table,
-            'total_available': len(available_tables)
-        }
-        
+
 def handle_modify_reservation_guests(parameters):
-    """Gestisce modifica del numero di ospiti - USA STESSA LOGICA DELLA CREAZIONE"""
+    """Gestisce modifica del numero di ospiti"""
     try:
         print(f"🔧 DEBUG - Modify guests parameters: {parameters}")
         
         # Estrai parametri
         phone_raw = parameters.get('phone_number', parameters.get('phone', ''))
         phone = extract_value(phone_raw)
-        
-        new_guests_raw = parameters.get('new_guests', 
-                         parameters.get('guests', 
-                         parameters.get('number', 
-                         parameters.get('guest_count',
-                         parameters.get('people',
-                         parameters.get('party_size', ''))))))
-        
+        new_guests_raw = parameters.get('new_guests', parameters.get('guests', parameters.get('number', '')))
         new_guests = extract_value(new_guests_raw)
         
         print(f"🔧 DEBUG - Extracted: phone={phone}, new_guests={new_guests}")
@@ -423,35 +314,16 @@ def handle_modify_reservation_guests(parameters):
                 'fulfillmentText': "Please specify the new number of guests for your reservation."
             })
         
-        # Conversione numero ospiti (stessa logica della creazione)
+        # Converti numero ospiti
         try:
-            guest_str = str(new_guests).strip().lower()
-            
-            for word in ['guests', 'people', 'persons', 'guest', 'person']:
-                guest_str = guest_str.replace(word, '')
-            guest_str = guest_str.strip()
-            
-            word_to_num = {
-                'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
-                'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
-                'eleven': 11, 'twelve': 12, 'thirteen': 13, 'fourteen': 14, 'fifteen': 15,
-                'sixteen': 16, 'seventeen': 17, 'eighteen': 18, 'nineteen': 19, 'twenty': 20
-            }
-            
-            if guest_str in word_to_num:
-                guest_count = word_to_num[guest_str]
-            else:
-                guest_count = int(float(guest_str))
-            
+            guest_count = int(new_guests)
             if guest_count < 1 or guest_count > 20:
                 return jsonify({
                     'fulfillmentText': "I can accommodate between 1 and 20 guests. Please specify a valid number."
                 })
-                
-        except (ValueError, TypeError) as e:
-            print(f"❌ Error converting guests '{new_guests}': {e}")
+        except (ValueError, TypeError):
             return jsonify({
-                'fulfillmentText': f"Please provide a valid number of guests. You said '{new_guests}' but I need a number between 1 and 20."
+                'fulfillmentText': "Please provide a valid number of guests."
             })
         
         # Cerca prenotazione esistente
@@ -471,29 +343,11 @@ def handle_modify_reservation_guests(parameters):
         old_date = reservation.get('Date', '')
         old_time = reservation.get('Time', '')
         old_guests = reservation.get('Guests', 2)
-        old_table = reservation.get('Table', 1)
         
-        print(f"🔧 DEBUG - Current reservation: {old_guests} guests")
-        print(f"🔧 DEBUG - Requested change to: {guest_count} guests")
-        
-        # Se è lo stesso numero di ospiti, non fare nulla
-        if guest_count == int(old_guests):
-            return jsonify({
-                'fulfillmentText': f"Your reservation is already for {old_guests} guests. No changes needed!"
-            })
-        
-        # 🔧 CORREZIONE: USA LA STESSA LOGICA DELLA CREAZIONE!
-        # Controlla disponibilità esattamente come nella creazione
-        print(f"🔧 DEBUG - Using CREATION logic: checking availability for {guest_count} guests")
-        
+        # Controlla disponibilità per il nuovo numero di ospiti
         try:
             day_of_week, hour_of_day = parse_dialogflow_datetime(old_date, old_time)
-            
-            # 🔧 USA find_available_table (stessa della creazione) NON find_available_table_for_modification
             result = find_available_table(guest_count, day_of_week, hour_of_day)
-            
-            print(f"🔧 DEBUG - Creation logic result: {result}")
-            
         except Exception as e:
             print(f"❌ Error checking availability: {e}")
             return jsonify({
@@ -501,13 +355,13 @@ def handle_modify_reservation_guests(parameters):
             })
         
         if result['available']:
-            # Se c'è disponibilità, procedi con l'aggiornamento
+            # Aggiorna il numero di ospiti e potenzialmente il tavolo
             new_table = result['table_number']
             
             # Aggiorna numero ospiti
             guests_updated = update_reservation_field(phone, old_date, old_time, 'guests', guest_count)
             
-            # Aggiorna tavolo
+            # Aggiorna tavolo se necessario
             table_updated = update_reservation_field(phone, old_date, old_time, 'table', new_table)
             
             if guests_updated and table_updated:
@@ -563,8 +417,6 @@ def handle_modify_reservation_guests(parameters):
             
     except Exception as e:
         print(f"❌ Error in modify_reservation_guests: {e}")
-        import traceback
-        print(f"❌ TRACEBACK: {traceback.format_exc()}")
         return jsonify({'fulfillmentText': f'Sorry, error modifying your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'})
 
 def update_reservation_field(phone, old_date, old_time, field, new_value):
@@ -1084,85 +936,72 @@ def handle_check_my_reservation(parameters):
         return jsonify({'fulfillmentText': f'Sorry, error checking your reservations. Please call us at {RESTAURANT_INFO["phone"]}.'})
 
 def extract_value(param):
-    """Estrae valore da parametri Dialogflow - VERSIONE MIGLIORATA"""
+    """Estrae valore da parametri Dialogflow con controlli robusti - VERSION CON DEBUG"""
     try:
         print(f"🔧 DEBUG - extract_value input: {param} (type: {type(param)})")
         
         if param is None or param == '':
             print(f"🔧 DEBUG - extract_value: param is None or empty")
             return None
-            
-        elif isinstance(param, (int, float)):
-            # Se è già un numero, restituiscilo direttamente
-            result = param
-            print(f"🔧 DEBUG - extract_value: returning number = {result}")
-            return result
-            
         elif isinstance(param, list):
             # Se è una lista, prendi il primo elemento
-            if not param or len(param) == 0:
-                print(f"🔧 DEBUG - extract_value: empty list")
-                return None
-                
-            first_item = param[0]
+            first_item = param[0] if param and len(param) > 0 else None
             print(f"🔧 DEBUG - extract_value: list, first_item = {first_item}")
-            
             if isinstance(first_item, dict):
                 # Se il primo elemento è un dizionario, estrai il valore
-                for key in ['name', 'value', 'amount', 'number']:
-                    if key in first_item and first_item[key] is not None and str(first_item[key]).strip():
-                        result = str(first_item[key]).strip()
-                        print(f"🔧 DEBUG - extract_value: returning from dict.{key} = '{result}'")
-                        return result
-                        
-                # Se non trova le chiavi standard, prendi il primo valore non vuoto
-                for value in first_item.values():
-                    if value is not None and str(value).strip():
-                        result = str(value).strip()
-                        print(f"🔧 DEBUG - extract_value: returning from dict first value = '{result}'")
-                        return result
-                        
-                print(f"🔧 DEBUG - extract_value: no valid value in dict")
-                return None
+                if 'name' in first_item and first_item['name']:
+                    result = str(first_item['name']).strip()
+                    print(f"🔧 DEBUG - extract_value: returning from dict.name = '{result}'")
+                    return result
+                elif 'value' in first_item and first_item['value']:
+                    result = str(first_item['value']).strip()
+                    print(f"🔧 DEBUG - extract_value: returning from dict.value = '{result}'")
+                    return result
+                else:
+                    # Prendi il primo valore non vuoto del dizionario
+                    for value in first_item.values():
+                        if value and str(value).strip():
+                            result = str(value).strip()
+                            print(f"🔧 DEBUG - extract_value: returning from dict first value = '{result}'")
+                            return result
+                    print(f"🔧 DEBUG - extract_value: no valid value in dict")
+                    return None
             else:
                 result = str(first_item).strip() if first_item not in ['', None] else None
                 print(f"🔧 DEBUG - extract_value: returning from list = '{result}'")
                 return result
-                
         elif isinstance(param, dict):
             print(f"🔧 DEBUG - extract_value: dict with keys {list(param.keys())}")
-            
-            # Cerca nelle chiavi comuni
-            for key in ['name', 'value', 'amount', 'number']:
-                if key in param and param[key] is not None and str(param[key]).strip():
-                    result = str(param[key]).strip()
-                    print(f"🔧 DEBUG - extract_value: returning from dict.{key} = '{result}'")
-                    return result
-                    
-            # Se ha una sola chiave, prendi quel valore
-            if len(param) == 1:
+            # Se è un dizionario, cerca nelle chiavi comuni
+            if 'name' in param and param['name']:
+                result = str(param['name']).strip()
+                print(f"🔧 DEBUG - extract_value: returning from dict.name = '{result}'")
+                return result
+            elif 'value' in param and param['value']:
+                result = str(param['value']).strip()
+                print(f"🔧 DEBUG - extract_value: returning from dict.value = '{result}'")
+                return result
+            elif len(param) == 1:
+                # Se ha una sola chiave, prendi quel valore
                 value = list(param.values())[0]
-                if value is not None and str(value).strip():
-                    result = str(value).strip()
-                    print(f"🔧 DEBUG - extract_value: returning single dict value = '{result}'")
-                    return result
-                    
-            # Prendi il primo valore non vuoto
-            for value in param.values():
-                if value is not None and str(value).strip():
-                    result = str(value).strip()
-                    print(f"🔧 DEBUG - extract_value: returning first non-empty = '{result}'")
-                    return result
-                    
-            print(f"🔧 DEBUG - extract_value: no valid value in multi-key dict")
-            return None
+                result = str(value).strip() if value not in ['', None] else None
+                print(f"🔧 DEBUG - extract_value: returning single dict value = '{result}'")
+                return result
+            else:
+                # Prendi il primo valore non vuoto
+                for value in param.values():
+                    if value and str(value).strip():
+                        result = str(value).strip()
+                        print(f"🔧 DEBUG - extract_value: returning first non-empty = '{result}'")
+                        return result
+                print(f"🔧 DEBUG - extract_value: no valid value in multi-key dict")
+                return None
         else:
             # Se è una stringa o altro tipo
             clean_value = str(param).strip()
             result = clean_value if clean_value not in ['', 'None', 'null'] else None
             print(f"🔧 DEBUG - extract_value: returning string/other = '{result}'")
             return result
-            
     except Exception as e:
         print(f"❌ Error in extract_value: {e}")
         print(f"❌ Param type: {type(param)}, value: {param}")
