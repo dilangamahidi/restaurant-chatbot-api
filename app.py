@@ -219,23 +219,7 @@ def handle_modify_reservation_time(parameters):
         # Controlla disponibilità per il nuovo orario
         try:
             day_of_week, hour_of_day = parse_dialogflow_datetime(old_date, new_time)
-            
-            # 🔧 DEBUG LOGS - INDENTAZIONE CORRETTA
-            print(f"🔧 DEBUG ML INPUT (MODIFY TIME):")
-            print(f"  old_date: {old_date}")
-            print(f"  new_time: {new_time}")
-            print(f"  guests: {guests}")
-            print(f"  day_of_week: {day_of_week}")  
-            print(f"  hour_of_day: {hour_of_day}")
-            print(f"  ML results for first 5 tables:")
-            
-            for table_num in range(1, 6):
-                ml_result = check_table_availability(table_num, int(guests), day_of_week, hour_of_day)
-                print(f"    Table {table_num}: {'AVAILABLE' if ml_result else 'OCCUPIED'}")
-            
             result = find_available_table(int(guests), day_of_week, hour_of_day)
-            print(f"  Final result: {result}")
-            
         except Exception as e:
             print(f"❌ Error checking availability: {e}")
             return jsonify({
@@ -363,24 +347,7 @@ def handle_modify_reservation_guests(parameters):
         # Controlla disponibilità per il nuovo numero di ospiti
         try:
             day_of_week, hour_of_day = parse_dialogflow_datetime(old_date, old_time)
-            
-            # 🔧 DEBUG LOGS - INDENTAZIONE CORRETTA
-            print(f"🔧 DEBUG ML INPUT (MODIFY GUESTS):")
-            print(f"  old_date: {old_date}")
-            print(f"  old_time: {old_time}")
-            print(f"  old_guests: {old_guests}")
-            print(f"  new_guests: {guest_count}")
-            print(f"  day_of_week: {day_of_week}")  
-            print(f"  hour_of_day: {hour_of_day}")
-            print(f"  ML results for first 5 tables:")
-            
-            for table_num in range(1, 6):
-                ml_result = check_table_availability(table_num, guest_count, day_of_week, hour_of_day)
-                print(f"    Table {table_num}: {'AVAILABLE' if ml_result else 'OCCUPIED'}")
-            
             result = find_available_table(guest_count, day_of_week, hour_of_day)
-            print(f"  Final result: {result}")
-            
         except Exception as e:
             print(f"❌ Error checking availability: {e}")
             return jsonify({
@@ -1696,23 +1663,7 @@ def handle_make_reservation(parameters):
         # Controlla disponibilità
         try:
             day_of_week, hour_of_day = parse_dialogflow_datetime(date, time)
-            
-            # 🔧 DEBUG LOGS - INDENTAZIONE CORRETTA
-            print(f"🔧 DEBUG ML INPUT (CREATE RESERVATION):")
-            print(f"  date: {date}")
-            print(f"  time: {time}")
-            print(f"  guest_count: {guest_count}")
-            print(f"  day_of_week: {day_of_week}")  
-            print(f"  hour_of_day: {hour_of_day}")
-            print(f"  ML results for first 5 tables:")
-            
-            for table_num in range(1, 6):
-                ml_result = check_table_availability(table_num, guest_count, day_of_week, hour_of_day)
-                print(f"    Table {table_num}: {'AVAILABLE' if ml_result else 'OCCUPIED'}")
-            
             result = find_available_table(guest_count, day_of_week, hour_of_day)
-            print(f"  Final result: {result}")
-            
         except Exception as e:
             print(f"❌ Error checking availability: {e}")
             return jsonify({
