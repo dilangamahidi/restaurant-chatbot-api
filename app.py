@@ -38,91 +38,299 @@ MENU = {
 # ================================================================
 
 def extract_value(param):
-    """Universal parameter extractor"""
-    if not param:
+    """Universal parameter extractor - FIXED"""
+    try:
+        if not param:
+            return None
+        if isinstance(param, list):
+            if param and len(param) > 0:
+                first_item = param[0]
+                if isinstance(first_item, dict):
+                    return str(first_item.get('name') or first_item.get('value') or '').strip()
+                else:
+                    return str(first_item).strip()
+        elif isinstance(param, dict):
+            return str(param.get('name') or param.get('value') or list(param.values())[0] if param.values() else '').strip()
+        else:
+            return str(param).strip()
+    except:
         return None
-    if isinstance(param, list):
-        return str(param[0]).strip() if param else None
-    if isinstance(param, dict):
-        return str(param.get('name') or param.get('value') or list(param.values())[0]).strip()
-    return str(param).strip()
 
-def parse_number(value, word_map=None):
-    """Universal number parser"""
-    if not value:
+def parse_number(value):
+    """Universal number parser - FIXED"""
+    try:
+        if not value:
+            return None
+        
+        # Word to number mapping
+        word_map = {
+            'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+            'eleven': 11, 'twelve': 12, 'thirteen': 13, 'fourteen': 14, 'fifteen': 15, 'sixteen': 16, 'seventeen': 17, 'eighteen': 18, 'nineteen': 19, 'twenty': 20
+        }
+        
+        clean_val = str(value).lower().strip()
+        # Remove common words
+        for word in ['guests', 'people', 'table', 'number']:
+            clean_val = clean_val.replace(word, '').strip()
+        
+        # Check word mapping first
+        if clean_val in word_map:
+            return word_map[clean_val]
+        
+        # Try direct conversion
+        if clean_val.isdigit():
+            return int(clean_val)
+        
+        # Try float conversion
+        try:
+            return int(float(clean_val))
+        except:
+            return None
+            
+    except:
         return None
-    
-    # Default word to number mapping
-    if not word_map:
-        word_map = {str(i): i for i in range(1, 21)}
-        word_map.update({'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6})
-    
-    clean_val = str(value).lower().strip()
-    for word in ['guests', 'people', 'table', 'number']:
-        clean_val = clean_val.replace(word, '').strip()
-    
-    return word_map.get(clean_val, int(float(clean_val)) if clean_val.replace('.','').isdigit() else None)
 
 def parse_datetime(date_str, time_str):
-    """Universal datetime parser"""
-    day_of_week, hour_of_day = 5, 19  # defaults
-    
-    # Parse date
-    if date_str:
-        if 'T' in str(date_str):
-            date_obj = datetime.strptime(str(date_str).split('T')[0], '%Y-%m-%d')
-        elif ',' in str(date_str):
+    """Universal datetime parser - FIXED"""
+    try:
+        day_of_week, hour_of_day = 5, 19  # defaults
+        
+        # Parse date
+        if date_str:
+            date_lower = str(date_str).lower().strip()
+            if 'monday' in date_lower: day_of_week = 0
+            elif 'tuesday' in date_lower: day_of_week = 1
+            elif 'wednesday' in date_lower: day_of_week = 2
+            elif 'thursday' in date_lower: day_of_week = 3
+            elif 'friday' in date_lower: day_of_week = 4
+            elif 'saturday' in date_lower: day_of_week = 5
+            elif 'sunday' in date_lower: day_of_week = 6
+            elif 'T' in str(date_str):
+                try:
+                    date_obj = datetime.strptime(str(date_str).split('T')[0], '%Y-%m-%d')
+                    day_of_week = date_obj.weekday()
+                except:
+                    pass
+            elif ',' in str(date_str):
+                try:
+                    date_obj = datetime.strptime(str(date_str), '%A, %B %d, %Y')
+                    day_of_week = date_obj.weekday()
+                except:
+                    try:
+                        date_obj = datetime.strptime(str(date_str), '%B %d, %Y') 
+                        day_of_week = date_obj.weekday()
+                    except:
+                        pass
+            elif len(str(date_str)) == 10 and str(date_str).count('-') == 2:
+                try:
+                    date_obj = datetime.strptime(str(date_str), '%Y-%m-%d')
+                    day_of_week = date_obj.weekday()
+                except:
+                    pass
+        
+        # Parse time
+        if time_str:
+            time_clean = str(time_str).lower().strip()
             try:
-                date_obj = datetime.strptime(str(date_str), '%A, %B %d, %Y')
+                if 'pm' in time_clean:
+                    hour = int(time_clean.replace('pm', '').replace(':', '').strip())
+                    hour_of_day = hour + 12 if hour != 12 else 12
+                elif 'am' in time_clean:
+                    hour = int(time_clean.replace('am', '').replace(':', '').strip())
+                    hour_of_day = 0 if hour == 12 else hour
+                elif ':' in time_clean:
+                    hour_of_day = int(time_clean.split(':')[0])
+                elif time_clean.isdigit():
+                    hour_of_day = int(time_clean)
+                elif 'T' in str(time_str):
+                    hour_of_day = int(str(time_str).split('T')[1].split(':')[0])
             except:
-                date_obj = datetime.strptime(str(date_str), '%B %d, %Y') 
+                pass
+        
+        return day_of_week, hour_of_day
+    except:
+        return 5, 19
+# VERSIONE CORRETTA - Sostituisci queste funzioni nel tuo codice
+
+def extract_value(param):
+    """Universal parameter extractor - FIXED"""
+    try:
+        if not param:
+            return None
+        if isinstance(param, list):
+            if param and len(param) > 0:
+                first_item = param[0]
+                if isinstance(first_item, dict):
+                    return str(first_item.get('name') or first_item.get('value') or '').strip()
+                else:
+                    return str(first_item).strip()
+        elif isinstance(param, dict):
+            return str(param.get('name') or param.get('value') or list(param.values())[0] if param.values() else '').strip()
         else:
-            date_obj = datetime.strptime(str(date_str), '%Y-%m-%d')
-        day_of_week = date_obj.weekday()
-    
-    # Parse time
-    if time_str:
-        time_clean = str(time_str).lower().strip()
-        if 'pm' in time_clean:
-            hour = int(time_clean.replace('pm', '').split(':')[0])
-            hour_of_day = hour + 12 if hour != 12 else 12
-        elif 'am' in time_clean:
-            hour = int(time_clean.replace('am', '').split(':')[0])
-            hour_of_day = 0 if hour == 12 else hour
-        elif ':' in time_clean:
-            hour_of_day = int(time_clean.split(':')[0])
-        else:
-            hour_of_day = int(time_clean)
-    
-    return day_of_week, hour_of_day
+            return str(param).strip()
+    except:
+        return None
+
+def parse_number(value):
+    """Universal number parser - FIXED"""
+    try:
+        if not value:
+            return None
+        
+        # Word to number mapping
+        word_map = {
+            'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+            'eleven': 11, 'twelve': 12, 'thirteen': 13, 'fourteen': 14, 'fifteen': 15, 'sixteen': 16, 'seventeen': 17, 'eighteen': 18, 'nineteen': 19, 'twenty': 20
+        }
+        
+        clean_val = str(value).lower().strip()
+        # Remove common words
+        for word in ['guests', 'people', 'table', 'number']:
+            clean_val = clean_val.replace(word, '').strip()
+        
+        # Check word mapping first
+        if clean_val in word_map:
+            return word_map[clean_val]
+        
+        # Try direct conversion
+        if clean_val.isdigit():
+            return int(clean_val)
+        
+        # Try float conversion
+        try:
+            return int(float(clean_val))
+        except:
+            return None
+            
+    except:
+        return None
+
+def parse_datetime(date_str, time_str):
+    """Universal datetime parser - FIXED"""
+    try:
+        day_of_week, hour_of_day = 5, 19  # defaults
+        
+        # Parse date
+        if date_str:
+            date_lower = str(date_str).lower().strip()
+            if 'monday' in date_lower: day_of_week = 0
+            elif 'tuesday' in date_lower: day_of_week = 1
+            elif 'wednesday' in date_lower: day_of_week = 2
+            elif 'thursday' in date_lower: day_of_week = 3
+            elif 'friday' in date_lower: day_of_week = 4
+            elif 'saturday' in date_lower: day_of_week = 5
+            elif 'sunday' in date_lower: day_of_week = 6
+            elif 'T' in str(date_str):
+                try:
+                    date_obj = datetime.strptime(str(date_str).split('T')[0], '%Y-%m-%d')
+                    day_of_week = date_obj.weekday()
+                except:
+                    pass
+            elif ',' in str(date_str):
+                try:
+                    date_obj = datetime.strptime(str(date_str), '%A, %B %d, %Y')
+                    day_of_week = date_obj.weekday()
+                except:
+                    try:
+                        date_obj = datetime.strptime(str(date_str), '%B %d, %Y') 
+                        day_of_week = date_obj.weekday()
+                    except:
+                        pass
+            elif len(str(date_str)) == 10 and str(date_str).count('-') == 2:
+                try:
+                    date_obj = datetime.strptime(str(date_str), '%Y-%m-%d')
+                    day_of_week = date_obj.weekday()
+                except:
+                    pass
+        
+        # Parse time
+        if time_str:
+            time_clean = str(time_str).lower().strip()
+            try:
+                if 'pm' in time_clean:
+                    hour = int(time_clean.replace('pm', '').replace(':', '').strip())
+                    hour_of_day = hour + 12 if hour != 12 else 12
+                elif 'am' in time_clean:
+                    hour = int(time_clean.replace('am', '').replace(':', '').strip())
+                    hour_of_day = 0 if hour == 12 else hour
+                elif ':' in time_clean:
+                    hour_of_day = int(time_clean.split(':')[0])
+                elif time_clean.isdigit():
+                    hour_of_day = int(time_clean)
+                elif 'T' in str(time_str):
+                    hour_of_day = int(str(time_str).split('T')[1].split(':')[0])
+            except:
+                pass
+        
+        return day_of_week, hour_of_day
+    except:
+        return 5, 19
 
 def format_datetime(date_str, time_str):
-    """Format datetime for display"""
+    """Format datetime for display - FIXED"""
     try:
+        # Format date
         if 'T' in str(date_str):
-            date_obj = datetime.strptime(str(date_str).split('T')[0], '%Y-%m-%d')
-            formatted_date = date_obj.strftime('%A, %B %d, %Y')
+            try:
+                date_obj = datetime.strptime(str(date_str).split('T')[0], '%Y-%m-%d')
+                formatted_date = date_obj.strftime('%A, %B %d, %Y')
+            except:
+                formatted_date = str(date_str)
+        elif str(date_str).lower() in ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']:
+            # For day names, we need to calculate the next occurrence
+            from datetime import datetime, timedelta
+            today = datetime.now()
+            days_ahead = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].index(str(date_str).lower()) - today.weekday()
+            if days_ahead <= 0:  # Target day already happened this week
+                days_ahead += 7
+            target_date = today + timedelta(days=days_ahead)
+            formatted_date = target_date.strftime('%A, %B %d, %Y')
         else:
             formatted_date = str(date_str)
         
-        if 'T' in str(time_str):
-            hour = int(str(time_str).split('T')[1].split(':')[0])
-        else:
-            hour = int(str(time_str).split(':')[0]) if ':' in str(time_str) else int(time_str)
-        
-        if hour == 0:
-            formatted_time = "12:00 AM"
-        elif hour < 12:
-            formatted_time = f"{hour}:00 AM"
-        elif hour == 12:
-            formatted_time = "12:00 PM"
-        else:
-            formatted_time = f"{hour-12}:00 PM"
+        # Format time
+        try:
+            time_clean = str(time_str).lower().strip()
+            if 'pm' in time_clean:
+                hour = int(time_clean.replace('pm', '').replace(':', '').strip())
+                if hour == 12:
+                    formatted_time = "12:00 PM"
+                else:
+                    formatted_time = f"{hour}:00 PM"
+            elif 'am' in time_clean:
+                hour = int(time_clean.replace('am', '').replace(':', '').strip())
+                if hour == 12:
+                    formatted_time = "12:00 AM"
+                else:
+                    formatted_time = f"{hour}:00 AM"
+            elif 'T' in str(time_str):
+                hour = int(str(time_str).split('T')[1].split(':')[0])
+                if hour == 0:
+                    formatted_time = "12:00 AM"
+                elif hour < 12:
+                    formatted_time = f"{hour}:00 AM"
+                elif hour == 12:
+                    formatted_time = "12:00 PM"
+                else:
+                    formatted_time = f"{hour-12}:00 PM"
+            else:
+                hour = int(str(time_str).split(':')[0]) if ':' in str(time_str) else int(time_str)
+                if hour == 0:
+                    formatted_time = "12:00 AM"
+                elif hour < 12:
+                    formatted_time = f"{hour}:00 AM"
+                elif hour == 12:
+                    formatted_time = "12:00 PM"
+                else:
+                    formatted_time = f"{hour-12}:00 PM"
+        except:
+            formatted_time = str(time_str)
             
         return formatted_date, formatted_time
-    except:
+    except Exception as e:
+        print(f"Format error: {e}")
         return str(date_str), str(time_str)
-
+        
 def build_response(messages):
     """Universal response builder"""
     if isinstance(messages, str):
@@ -239,56 +447,104 @@ def update_reservation_field(phone, date, time, field, new_value):
 # ================================================================
 
 def handle_make_reservation(params):
-    """Create new reservation - OPTIMIZED"""
-    # Extract parameters
-    name = extract_value(params.get('name') or params.get('person'))
-    phone = extract_value(params.get('phone_number') or params.get('phone'))
-    email = extract_value(params.get('email'))
-    guests = parse_number(extract_value(params.get('guest_count') or params.get('guests') or params.get('number'))) or 2
-    date = extract_value(params.get('day_of_week') or params.get('date'))
-    time = extract_value(params.get('hour_of_day') or params.get('time'))
-    
-    # Validate
-    errors = []
-    if not name or len(name) < 2: errors.append("valid name")
-    if not phone: errors.append("phone number")
-    if not email or '@' not in email: errors.append("valid email")
-    if not date: errors.append("date")
-    if not time: errors.append("time")
-    if guests < 1 or guests > 20: errors.append("valid guest count (1-20)")
-    
-    if errors:
-        return build_response(f"I need: {', '.join(errors)}")
-    
-    # Format datetime
-    formatted_date, formatted_time = format_datetime(date, time)
-    
-    # Check availability
-    day_of_week, hour_of_day = parse_datetime(date, time)
-    availability = find_available_table(guests, day_of_week, hour_of_day)
-    
-    if not availability['available']:
-        return build_response(f"Sorry, no tables available for {guests} guests at {formatted_time} on {formatted_date}")
-    
-    # Save reservation
-    reservation_data = {
-        'name': name, 'phone': phone, 'email': email, 'guests': guests,
-        'date': formatted_date, 'time': formatted_time, 'table': availability['table_number']
-    }
-    
-    if save_reservation(reservation_data):
-        return build_response([
-            "🎉 Reservation Confirmed!",
-            f"👤 Name: {name}",
-            f"📞 Phone: {phone}", 
-            f"📧 Email: {email}",
-            f"👥 Guests: {guests}",
-            f"📅 Date: {formatted_date}",
-            f"🕐 Time: {formatted_time}",
-            f"🪑 Table: {availability['table_number']}"
-        ])
-    else:
-        return build_response(f"Reservation created but please call {RESTAURANT_INFO['phone']} to confirm")
+    """Create new reservation - FIXED VERSION"""
+    try:
+        print(f"DEBUG: Raw params = {params}")
+        
+        # Extract parameters with multiple possible keys
+        name = (extract_value(params.get('name')) or 
+                extract_value(params.get('person')) or 
+                extract_value(params.get('given-name')))
+        
+        phone = (extract_value(params.get('phone_number')) or 
+                 extract_value(params.get('phone')) or 
+                 extract_value(params.get('number')))
+        
+        email = extract_value(params.get('email'))
+        
+        # Try multiple keys for guests
+        guests_raw = (extract_value(params.get('guest_count')) or 
+                      extract_value(params.get('guests')) or 
+                      extract_value(params.get('number-integer')) or
+                      extract_value(params.get('number')))
+        guests = parse_number(guests_raw) or 2
+        
+        # Try multiple keys for date
+        date = (extract_value(params.get('day_of_week')) or 
+                extract_value(params.get('date')) or
+                extract_value(params.get('date-time')))
+        
+        # Try multiple keys for time  
+        time = (extract_value(params.get('hour_of_day')) or 
+                extract_value(params.get('time')) or
+                extract_value(params.get('date-time')))
+        
+        print(f"DEBUG: Extracted - name={name}, phone={phone}, email={email}, guests={guests}, date={date}, time={time}")
+        
+        # Validate
+        errors = []
+        if not name or len(name) < 2: 
+            errors.append("your name")
+        if not phone: 
+            errors.append("your phone number")
+        if not email or '@' not in email: 
+            errors.append("your email address")
+        if not date: 
+            errors.append("the date")
+        if not time: 
+            errors.append("the time")
+        if guests < 1 or guests > 20: 
+            errors.append("valid guest count (1-20)")
+        
+        if errors:
+            return build_response(f"I need {', '.join(errors)} to complete your reservation.")
+        
+        # Format datetime
+        formatted_date, formatted_time = format_datetime(date, time)
+        print(f"DEBUG: Formatted - date={formatted_date}, time={formatted_time}")
+        
+        # Check availability
+        day_of_week, hour_of_day = parse_datetime(date, time)
+        print(f"DEBUG: Parsed for ML - day={day_of_week}, hour={hour_of_day}")
+        
+        availability = find_available_table(guests, day_of_week, hour_of_day)
+        print(f"DEBUG: Availability = {availability}")
+        
+        if not availability['available']:
+            return build_response(f"Sorry, no tables available for {guests} guests at {formatted_time} on {formatted_date}. Please try a different time.")
+        
+        # Save reservation
+        reservation_data = {
+            'name': name, 
+            'phone': phone, 
+            'email': email, 
+            'guests': guests,
+            'date': formatted_date, 
+            'time': formatted_time, 
+            'table': availability['table_number']
+        }
+        
+        print(f"DEBUG: Saving reservation = {reservation_data}")
+        
+        if save_reservation(reservation_data):
+            return build_response([
+                "🎉 Reservation Confirmed!",
+                f"👤 Name: {name}",
+                f"📞 Phone: {phone}", 
+                f"📧 Email: {email}",
+                f"👥 Guests: {guests}",
+                f"📅 Date: {formatted_date}",
+                f"🕐 Time: {formatted_time}",
+                f"🪑 Table: {availability['table_number']}"
+            ])
+        else:
+            return build_response(f"Reservation created but please call {RESTAURANT_INFO['phone']} to confirm")
+            
+    except Exception as e:
+        print(f"ERROR in handle_make_reservation: {e}")
+        import traceback
+        print(f"TRACEBACK: {traceback.format_exc()}")
+        return build_response(f"Sorry, technical error. Please call {RESTAURANT_INFO['phone']}")
 
 def handle_modify_reservation(intent_name, params):
     """Universal modification handler - REPLACES 3 SEPARATE FUNCTIONS"""
@@ -410,6 +666,9 @@ def dialogflow_webhook():
         intent_name = req.get('queryResult', {}).get('intent', {}).get('displayName', '')
         parameters = req.get('queryResult', {}).get('parameters', {})
         
+        print(f"DEBUG: Intent = {intent_name}")
+        print(f"DEBUG: Parameters = {parameters}")
+        
         if intent_name == 'make.reservation':
             return handle_make_reservation(parameters)
         elif intent_name.startswith('modify.reservation'):
@@ -418,6 +677,8 @@ def dialogflow_webhook():
             return handle_info_requests(intent_name)
         elif intent_name == 'check.my.reservation':
             phone = extract_value(parameters.get('phone_number') or parameters.get('phone'))
+            if not phone:
+                return build_response("Please provide your phone number to check your reservation")
             reservations = get_user_reservations(phone)
             if reservations:
                 res = reservations[0]
@@ -429,12 +690,37 @@ def dialogflow_webhook():
                 ])
             else:
                 return build_response(f"No reservations found for {phone}")
+        elif intent_name == 'check.availability':
+            # Handle availability check
+            guests = parse_number(extract_value(parameters.get('guest_count') or parameters.get('guests'))) or 2
+            date = extract_value(parameters.get('date') or parameters.get('day_of_week'))
+            time = extract_value(parameters.get('time') or parameters.get('hour_of_day'))
+            
+            if not date or not time:
+                return build_response("Please specify both date and time to check availability")
+            
+            day_of_week, hour_of_day = parse_datetime(date, time)
+            availability = find_available_table(guests, day_of_week, hour_of_day)
+            formatted_date, formatted_time = format_datetime(date, time)
+            
+            if availability['available']:
+                return build_response(f"✅ Yes! We have availability for {guests} guests on {formatted_date} at {formatted_time}. Would you like to make a reservation?")
+            else:
+                return build_response(f"❌ Sorry, no availability for {guests} guests on {formatted_date} at {formatted_time}. Please try a different time.")
+        elif intent_name == 'cancel.reservation':
+            phone = extract_value(parameters.get('phone_number') or parameters.get('phone'))
+            if not phone:
+                return build_response("Please provide your phone number to cancel your reservation")
+            # Add cancel logic here
+            return build_response(f"To cancel your reservation, please call us at {RESTAURANT_INFO['phone']}")
         else:
-            return build_response(f"🍽️ Welcome to {RESTAURANT_INFO['name']}! How can I help?")
+            return build_response(f"🍽️ Welcome to {RESTAURANT_INFO['name']}! I can help you make reservations, check availability, or provide information. How can I assist you?")
             
     except Exception as e:
-        print(f"Error: {e}")
-        return build_response(f"Technical error. Call {RESTAURANT_INFO['phone']}")
+        print(f"ERROR in webhook: {e}")
+        import traceback
+        print(f"TRACEBACK: {traceback.format_exc()}")
+        return build_response(f"Technical error. Please call {RESTAURANT_INFO['phone']}")
 
 @app.route('/')
 def home():
