@@ -1204,13 +1204,13 @@ def handle_make_reservation(parameters):
         # Telefono
         if not phone:
             validation_errors.append("your phone number")
-        elif not re.match(r'^[\d\s\-\+\(\)]+, str(phone)):
+        elif not re.match(r'^[\d\s\-\+\(\)]+$', str(phone)):
             validation_errors.append("a valid phone number")
         
         # Email
         if not email:
             validation_errors.append("your email address")
-        elif not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}, str(email)):
+        elif not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', str(email)):
             validation_errors.append("a valid email address")
         
         # Data
