@@ -1042,7 +1042,7 @@ def handle_check_table_specific(parameters):
 
 
 def handle_make_reservation(parameters):
-    """Gestisce prenotazione completa con debugging esteso - FIXED VERSION"""
+    """Gestisce prenotazione completa con risposta semplificata per test"""
     try:
         print(f"🔧 DEBUG - RAW PARAMETERS: {parameters}")
         
@@ -1250,86 +1250,32 @@ def handle_make_reservation(parameters):
             except Exception as e:
                 print(f"❌ Error sending emails: {e}")
             
-            # 🚨 RISPOSTA DI SUCCESSO GARANTITA
-            print("🔧 DEBUG - Building success response...")
+            # 🚨 RISPOSTA SEMPLIFICATA PER TEST
+            print("🔧 DEBUG - Building SIMPLE success response for testing...")
             
-            try:
-                rich_response = {
-                    "fulfillmentText": "🎉 Reservation Confirmed!",
-                    "fulfillmentMessages": [
-                        {
-                            "text": {
-                                "text": ["🎉 Reservation Confirmed!"]
-                            }
-                        },
-                        {
-                            "text": {
-                                "text": [f"👤 Name: {name}"]
-                            }
-                        },
-                        {
-                            "text": {
-                                "text": [f"📞 Phone: {phone}"]
-                            }
-                        },
-                        {
-                            "text": {
-                                "text": [f"📧 Email: {email}"]
-                            }
-                        },
-                        {
-                            "text": {
-                                "text": [f"👥 Number of guests: {guest_count}"]
-                            }
-                        },
-                        {
-                            "text": {
-                                "text": [f"📅 Date: {formatted_date}"]
-                            }
-                        },
-                        {
-                            "text": {
-                                "text": [f"🕐 Time: {formatted_time}"]
-                            }
-                        },
-                        {
-                            "text": {
-                                "text": [f"🪑 Table assigned: {table_num}"]
-                            }
-                        },
-                        {
-                            "text": {
-                                "text": ["✅ Your reservation is confirmed!"]
-                            }
-                        }
-                    ]
-                }
-                
-                # Aggiungi messaggio email se inviata con successo
-                if email_sent:
-                    rich_response["fulfillmentMessages"].append({
-                        "text": {
-                            "text": ["📧 Confirmation email sent to your address!"]
-                        }
-                    })
-                
-                # Aggiungi messaggio se sheets non funziona
-                if not sheets_saved:
-                    rich_response["fulfillmentMessages"].append({
-                        "text": {
-                            "text": ["📝 Note: Our staff will contact you to confirm details."]
-                        }
-                    })
-                
-                print("🔧 DEBUG - Returning success response")
-                return jsonify(rich_response)
-                
-            except Exception as e:
-                print(f"❌ Error building rich response: {e}")
-                # Fallback a risposta semplice
-                return jsonify({
-                    'fulfillmentText': f"✅ Reservation confirmed for {name} on {formatted_date} at {formatted_time} for {guest_count} guests at table {table_num}!"
-                })
+            # Costruisci messaggio semplice ma completo
+            success_message = f"🎉 Reservation Confirmed! "
+            success_message += f"Name: {name}, "
+            success_message += f"Phone: {phone}, "
+            success_message += f"Email: {email}, "
+            success_message += f"Guests: {guest_count}, "
+            success_message += f"Date: {formatted_date}, "
+            success_message += f"Time: {formatted_time}, "
+            success_message += f"Table: {table_num}. "
+            
+            if email_sent:
+                success_message += "Confirmation email sent! "
+            
+            if not sheets_saved:
+                success_message += "Our staff will contact you to confirm details."
+            else:
+                success_message += "Your reservation is fully confirmed!"
+            
+            print(f"🔧 DEBUG - Returning simple response: {success_message}")
+            
+            return jsonify({
+                'fulfillmentText': success_message
+            })
                 
         else:
             # Questo ora non dovrebbe mai accadere con i fallback
@@ -1346,36 +1292,3 @@ def handle_make_reservation(parameters):
         return jsonify({
             'fulfillmentText': f"I'm sorry, there was a technical issue processing your reservation. Please call us directly at {RESTAURANT_INFO['phone']} and we'll be happy to help you immediately."
         })
-
-def debug_ml_model():
-    """Testa il modello ML e mostra risultati dettagliati"""
-    print("🔧 DEBUG ML MODEL TEST:")
-    
-    model_status = get_model_status()
-    print(f"  Model loaded: {model_status}")
-    
-    if model_status:
-        # Test alcuni scenari
-        test_scenarios = [
-            (1, 2, 0, 12),  # Table 1, 2 guests, Monday, 12pm
-            (1, 2, 1, 19),  # Table 1, 2 guests, Tuesday, 7pm
-            (5, 4, 5, 20),  # Table 5, 4 guests, Saturday, 8pm
-        ]
-        
-        for table, guests, day, hour in test_scenarios:
-            result = check_table_availability(table, guests, day, hour)
-            print(f"  Table {table}, {guests} guests, day {day}, hour {hour}: {'AVAILABLE' if result else 'OCCUPIED'}")
-            
-        # Test find_available_table
-        availability = find_available_table(2, 1, 19)  # 2 guests, Tuesday, 7pm
-        print(f"  Find available table result: {availability}")
-    else:
-        print("  ❌ Model not loaded - all checks will fail")
-
-
-# Aggiungi questa funzione al debug se necessario
-if __name__ == "__main__":
-    debug_ml_model()
-# Aggiungi questa funzione al debug se necessario
-if __name__ == "__main__":
-    debug_ml_model()
