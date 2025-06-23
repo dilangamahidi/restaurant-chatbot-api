@@ -4,6 +4,8 @@ Handlers per la gestione delle prenotazioni del ristorante - VERSIONE FIX RESPON
 from flask import jsonify
 import re
 import traceback
+import time
+import threading
 
 # Importa da nostri moduli
 from config import RESTAURANT_INFO
@@ -27,231 +29,346 @@ from ml_utils import (
 )
 from email_manager import send_confirmation_email, send_admin_notification
 
+def log_function_entry(func_name, parameters):
+    """Log standardizzato per l'ingresso nelle funzioni"""
+    print(f"\n🚀 === ENTERING FUNCTION: {func_name} ===")
+    print(f"🕐 Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"🔧 Thread: {threading.current_thread().name}")
+    print(f"📋 Parameters: {parameters}")
+    print("=" * 50)
+
+def log_function_exit(func_name, response_text, success=True):
+    """Log standardizzato per l'uscita dalle funzioni"""
+    status = "✅ SUCCESS" if success else "❌ FAILED"
+    print(f"\n🏁 === EXITING FUNCTION: {func_name} - {status} ===")
+    print(f"🕐 Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"📤 Response: {response_text[:100]}...")
+    print("=" * 50)
+
+def safe_operation(operation_name, operation_func, *args, **kwargs):
+    """Wrapper sicuro per operazioni che possono fallire"""
+    print(f"🔄 STARTING OPERATION: {operation_name}")
+    try:
+        start_time = time.time()
+        result = operation_func(*args, **kwargs)
+        end_time = time.time()
+        print(f"✅ OPERATION COMPLETED: {operation_name} in {end_time-start_time:.2f}s")
+        print(f"📊 Result: {result}")
+        return result, True
+    except Exception as e:
+        print(f"❌ OPERATION FAILED: {operation_name}")
+        print(f"💥 Error: {str(e)}")
+        print(f"📚 Traceback: {traceback.format_exc()}")
+        return None, False
+
+def create_safe_response(response_text, func_name):
+    """Crea una risposta JSON sicura con logging estensivo"""
+    print(f"🔨 BUILDING RESPONSE for {func_name}")
+    print(f"📝 Response text: '{response_text}'")
+    print(f"📏 Response length: {len(response_text)} characters")
+    
+    try:
+        # Assicurati che la risposta sia una stringa
+        if not isinstance(response_text, str):
+            response_text = str(response_text)
+        
+        # Limita la lunghezza per sicurezza
+        if len(response_text) > 1000:
+            response_text = response_text[:997] + "..."
+            print(f"⚠️ Response truncated to 1000 chars")
+        
+        response_json = {'fulfillmentText': response_text}
+        print(f"✅ JSON Response created successfully")
+        print(f"🔍 JSON Structure: {response_json}")
+        
+        return jsonify(response_json)
+    except Exception as e:
+        print(f"❌ CRITICAL: Failed to build JSON response!")
+        print(f"💥 Error: {str(e)}")
+        fallback_response = {'fulfillmentText': 'Sorry, there was a technical issue. Please call us.'}
+        return jsonify(fallback_response)
 
 def handle_modify_reservation_date(parameters):
-    """Gestisce modifica della data di prenotazione - FIX RESPONSE SEMPLIFICATA"""
+    """Gestisce modifica della data di prenotazione - SUPER DEBUG"""
+    log_function_entry("handle_modify_reservation_date", parameters)
+    
     try:
-        print(f"🔧 DEBUG - Modify date parameters: {parameters}")
-        
-        # Estrai parametri
+        # 1. FASE ESTRAZIONE PARAMETRI
+        print("🔄 PHASE 1: Extracting parameters...")
         phone_raw = parameters.get('phone_number', parameters.get('phone', ''))
-        phone = extract_value(phone_raw)
+        phone, phone_ok = safe_operation("extract_phone", extract_value, phone_raw)
+        
         new_date_raw = parameters.get('new_date', parameters.get('date', ''))
-        new_date = extract_value(new_date_raw)
+        new_date, date_ok = safe_operation("extract_date", extract_value, new_date_raw)
         
-        print(f"🔧 DEBUG - Extracted: phone={phone}, new_date={new_date}")
+        print(f"📞 Phone: '{phone}' (success: {phone_ok})")
+        print(f"📅 New date: '{new_date}' (success: {date_ok})")
         
-        if not phone:
+        # 2. VALIDAZIONI
+        print("🔄 PHASE 2: Validating inputs...")
+        if not phone or not phone_ok:
             response = "Please provide your phone number to find your reservation."
-            print(f"🔧 DEBUG - Returning: {response}")
-            return jsonify({'fulfillmentText': response})
+            log_function_exit("handle_modify_reservation_date", response, False)
+            return create_safe_response(response, "handle_modify_reservation_date")
         
-        if not new_date:
+        if not new_date or not date_ok:
             response = "Please specify the new date for your reservation."
-            print(f"🔧 DEBUG - Returning: {response}")
-            return jsonify({'fulfillmentText': response})
+            log_function_exit("handle_modify_reservation_date", response, False)
+            return create_safe_response(response, "handle_modify_reservation_date")
         
-        # Cerca prenotazione esistente
-        user_reservations = get_user_reservations(phone)
+        # 3. RICERCA PRENOTAZIONI
+        print("🔄 PHASE 3: Searching for reservations...")
+        user_reservations, search_ok = safe_operation("get_user_reservations", get_user_reservations, phone)
+        
+        if not search_ok:
+            response = "Sorry, I'm having trouble accessing your reservations. Please call us."
+            log_function_exit("handle_modify_reservation_date", response, False)
+            return create_safe_response(response, "handle_modify_reservation_date")
         
         if not user_reservations:
             response = f"I couldn't find any active reservations for phone number {phone}."
-            print(f"🔧 DEBUG - Returning: {response}")
-            return jsonify({'fulfillmentText': response})
+            log_function_exit("handle_modify_reservation_date", response, False)
+            return create_safe_response(response, "handle_modify_reservation_date")
         
         if len(user_reservations) != 1:
             response = f"You have multiple reservations. Please call us at {RESTAURANT_INFO['phone']} to specify which one to modify."
-            print(f"🔧 DEBUG - Returning: {response}")
-            return jsonify({'fulfillmentText': response})
+            log_function_exit("handle_modify_reservation_date", response, False)
+            return create_safe_response(response, "handle_modify_reservation_date")
         
+        # 4. ELABORAZIONE PRENOTAZIONE
+        print("🔄 PHASE 4: Processing reservation...")
         reservation = user_reservations[0]
         old_date = reservation.get('Date', '')
         old_time = reservation.get('Time', '')
         guests = reservation.get('Guests', 2)
         
-        # Formatta la nuova data
-        try:
-            formatted_new_date = format_date_readable(new_date)
-        except Exception as e:
-            print(f"❌ Error formatting new date: {e}")
+        print(f"📊 Current reservation: date={old_date}, time={old_time}, guests={guests}")
+        
+        # 5. FORMATTAZIONE DATA
+        print("🔄 PHASE 5: Formatting new date...")
+        formatted_new_date, format_ok = safe_operation("format_date_readable", format_date_readable, new_date)
+        if not format_ok:
             formatted_new_date = str(new_date)
+            print(f"⚠️ Using fallback date format: {formatted_new_date}")
         
-        # Controlla disponibilità per la nuova data (solo una volta!)
+        # 6. CONTROLLO DISPONIBILITÀ
+        print("🔄 PHASE 6: Checking availability...")
         try:
+            print("🔄 6a. Parsing datetime...")
             day_of_week, hour_of_day = parse_dialogflow_datetime(new_date, old_time)
-            result = find_available_table(int(guests), day_of_week, hour_of_day)
+            print(f"📊 Parsed: day_of_week={day_of_week}, hour_of_day={hour_of_day}")
+            
+            print("🔄 6b. Finding available table...")
+            result, avail_ok = safe_operation("find_available_table", find_available_table, int(guests), day_of_week, hour_of_day)
+            
+            if not avail_ok or not result or not result.get('available'):
+                response = f"Sorry, we don't have availability for {guests} guests on {formatted_new_date} at {old_time}. Please try a different date or time."
+                log_function_exit("handle_modify_reservation_date", response, False)
+                return create_safe_response(response, "handle_modify_reservation_date")
+                
         except Exception as e:
-            print(f"❌ Error checking availability: {e}")
+            print(f"❌ PHASE 6 FAILED: {str(e)}")
             response = "Sorry, I'm having trouble checking availability for the new date."
-            print(f"🔧 DEBUG - Returning: {response}")
-            return jsonify({'fulfillmentText': response})
+            log_function_exit("handle_modify_reservation_date", response, False)
+            return create_safe_response(response, "handle_modify_reservation_date")
         
-        if not result['available']:
-            response = f"Sorry, we don't have availability for {guests} guests on {formatted_new_date} at {old_time}. Please try a different date or time."
-            print(f"🔧 DEBUG - Returning: {response}")
-            return jsonify({'fulfillmentText': response})
-        
-        # Aggiorna la data e tavolo
+        # 7. AGGIORNAMENTO PRENOTAZIONE
+        print("🔄 PHASE 7: Updating reservation...")
         new_table = result['table_number']
+        print(f"🆕 New table assigned: {new_table}")
         
-        # Aggiorna data
-        date_updated = False
-        try:
-            date_updated = update_reservation_field(phone, old_date, old_time, 'date', formatted_new_date)
-            print(f"🔧 DEBUG - date_updated result: {date_updated}")
-        except Exception as e:
-            print(f"❌ Error updating date: {e}")
+        print("🔄 7a. Updating date...")
+        date_updated, date_update_ok = safe_operation(
+            "update_date", 
+            update_reservation_field, 
+            phone, old_date, old_time, 'date', formatted_new_date
+        )
         
-        # Aggiorna tavolo
-        table_updated = False
-        try:
-            table_updated = update_reservation_field(phone, formatted_new_date, old_time, 'table', new_table)
-            print(f"🔧 DEBUG - table_updated result: {table_updated}")
-        except Exception as e:
-            print(f"❌ Error updating table: {e}")
+        print("🔄 7b. Updating table...")
+        table_updated, table_update_ok = safe_operation(
+            "update_table", 
+            update_reservation_field, 
+            phone, formatted_new_date, old_time, 'table', new_table
+        )
         
-        # SEMPRE restituisci una risposta (semplificata)
-        if date_updated or table_updated:
+        # 8. COSTRUZIONE RISPOSTA
+        print("🔄 PHASE 8: Building response...")
+        print(f"📊 Update results: date_updated={date_updated}, table_updated={table_updated}")
+        
+        if (date_updated and date_update_ok) or (table_updated and table_update_ok):
             response = f"✅ Date updated successfully to {formatted_new_date}! Your table is now {new_table}."
-            print(f"🔧 DEBUG - Returning SUCCESS: {response}")
-            return jsonify({'fulfillmentText': response})
+            log_function_exit("handle_modify_reservation_date", response, True)
+            return create_safe_response(response, "handle_modify_reservation_date")
         else:
             response = f"Update completed. Please call {RESTAURANT_INFO['phone']} to verify changes."
-            print(f"🔧 DEBUG - Returning FALLBACK: {response}")
-            return jsonify({'fulfillmentText': response})
+            log_function_exit("handle_modify_reservation_date", response, False)
+            return create_safe_response(response, "handle_modify_reservation_date")
             
     except Exception as e:
-        print(f"❌ Error in modify_reservation_date: {e}")
+        print(f"❌ CRITICAL ERROR in handle_modify_reservation_date: {str(e)}")
+        print(f"📚 Full traceback: {traceback.format_exc()}")
         response = f'Sorry, error modifying your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'
-        print(f"🔧 DEBUG - Returning ERROR: {response}")
-        return jsonify({'fulfillmentText': response})
+        log_function_exit("handle_modify_reservation_date", response, False)
+        return create_safe_response(response, "handle_modify_reservation_date")
 
 
 def handle_modify_reservation_time(parameters):
-    """Gestisce modifica dell'orario di prenotazione - FIX RESPONSE SEMPLIFICATA"""
+    """Gestisce modifica dell'orario di prenotazione - SUPER DEBUG"""
+    log_function_entry("handle_modify_reservation_time", parameters)
+    
     try:
-        print(f"🔧 DEBUG - Modify time parameters: {parameters}")
-        
-        # Estrai parametri
+        # 1. FASE ESTRAZIONE PARAMETRI
+        print("🔄 PHASE 1: Extracting parameters...")
         phone_raw = parameters.get('phone_number', parameters.get('phone', ''))
-        phone = extract_value(phone_raw)
+        phone, phone_ok = safe_operation("extract_phone", extract_value, phone_raw)
+        
         new_time_raw = parameters.get('new_time', parameters.get('time', ''))
-        new_time = extract_value(new_time_raw)
+        new_time, time_ok = safe_operation("extract_time", extract_value, new_time_raw)
         
-        print(f"🔧 DEBUG - Extracted: phone={phone}, new_time={new_time}")
+        print(f"📞 Phone: '{phone}' (success: {phone_ok})")
+        print(f"🕐 New time: '{new_time}' (success: {time_ok})")
         
-        if not phone:
+        # 2. VALIDAZIONI
+        print("🔄 PHASE 2: Validating inputs...")
+        if not phone or not phone_ok:
             response = "Please provide your phone number to find your reservation."
-            print(f"🔧 DEBUG - Returning: {response}")
-            return jsonify({'fulfillmentText': response})
+            log_function_exit("handle_modify_reservation_time", response, False)
+            return create_safe_response(response, "handle_modify_reservation_time")
         
-        if not new_time:
+        if not new_time or not time_ok:
             response = "Please specify the new time for your reservation."
-            print(f"🔧 DEBUG - Returning: {response}")
-            return jsonify({'fulfillmentText': response})
+            log_function_exit("handle_modify_reservation_time", response, False)
+            return create_safe_response(response, "handle_modify_reservation_time")
         
-        # Cerca prenotazione esistente
-        user_reservations = get_user_reservations(phone)
+        # 3. RICERCA PRENOTAZIONI
+        print("🔄 PHASE 3: Searching for reservations...")
+        user_reservations, search_ok = safe_operation("get_user_reservations", get_user_reservations, phone)
+        
+        if not search_ok:
+            response = "Sorry, I'm having trouble accessing your reservations. Please call us."
+            log_function_exit("handle_modify_reservation_time", response, False)
+            return create_safe_response(response, "handle_modify_reservation_time")
         
         if not user_reservations:
             response = f"I couldn't find any active reservations for phone number {phone}."
-            print(f"🔧 DEBUG - Returning: {response}")
-            return jsonify({'fulfillmentText': response})
+            log_function_exit("handle_modify_reservation_time", response, False)
+            return create_safe_response(response, "handle_modify_reservation_time")
         
         if len(user_reservations) != 1:
             response = f"You have multiple reservations. Please call us at {RESTAURANT_INFO['phone']} to specify which one to modify."
-            print(f"🔧 DEBUG - Returning: {response}")
-            return jsonify({'fulfillmentText': response})
+            log_function_exit("handle_modify_reservation_time", response, False)
+            return create_safe_response(response, "handle_modify_reservation_time")
         
+        # 4. ELABORAZIONE PRENOTAZIONE
+        print("🔄 PHASE 4: Processing reservation...")
         reservation = user_reservations[0]
         old_date = reservation.get('Date', '')
         old_time = reservation.get('Time', '')
         guests = reservation.get('Guests', 2)
         
-        # Formatta il nuovo orario
-        try:
-            formatted_new_time = format_time_readable(new_time)
-        except Exception as e:
-            print(f"❌ Error formatting new time: {e}")
+        print(f"📊 Current reservation: date={old_date}, time={old_time}, guests={guests}")
+        
+        # 5. FORMATTAZIONE ORARIO
+        print("🔄 PHASE 5: Formatting new time...")
+        formatted_new_time, format_ok = safe_operation("format_time_readable", format_time_readable, new_time)
+        if not format_ok:
             formatted_new_time = str(new_time)
+            print(f"⚠️ Using fallback time format: {formatted_new_time}")
         
-        # Controlla disponibilità per il nuovo orario (solo una volta!)
+        # 6. CONTROLLO DISPONIBILITÀ
+        print("🔄 PHASE 6: Checking availability...")
         try:
+            print("🔄 6a. Parsing datetime...")
             day_of_week, hour_of_day = parse_dialogflow_datetime(old_date, new_time)
-            result = find_available_table(int(guests), day_of_week, hour_of_day)
+            print(f"📊 Parsed: day_of_week={day_of_week}, hour_of_day={hour_of_day}")
+            
+            print("🔄 6b. Finding available table...")
+            result, avail_ok = safe_operation("find_available_table", find_available_table, int(guests), day_of_week, hour_of_day)
+            
+            if not avail_ok or not result or not result.get('available'):
+                response = f"Sorry, we don't have availability for {guests} guests on {old_date} at {formatted_new_time}. Please try a different time."
+                log_function_exit("handle_modify_reservation_time", response, False)
+                return create_safe_response(response, "handle_modify_reservation_time")
+                
         except Exception as e:
-            print(f"❌ Error checking availability: {e}")
+            print(f"❌ PHASE 6 FAILED: {str(e)}")
             response = "Sorry, I'm having trouble checking availability for the new time."
-            print(f"🔧 DEBUG - Returning: {response}")
-            return jsonify({'fulfillmentText': response})
+            log_function_exit("handle_modify_reservation_time", response, False)
+            return create_safe_response(response, "handle_modify_reservation_time")
         
-        if not result['available']:
-            response = f"Sorry, we don't have availability for {guests} guests on {old_date} at {formatted_new_time}. Please try a different time."
-            print(f"🔧 DEBUG - Returning: {response}")
-            return jsonify({'fulfillmentText': response})
-        
-        # Aggiorna l'orario e tavolo
+        # 7. AGGIORNAMENTO PRENOTAZIONE
+        print("🔄 PHASE 7: Updating reservation...")
         new_table = result['table_number']
+        print(f"🆕 New table assigned: {new_table}")
         
-        # Aggiorna orario
-        time_updated = False
-        try:
-            time_updated = update_reservation_field(phone, old_date, old_time, 'time', formatted_new_time)
-            print(f"🔧 DEBUG - time_updated result: {time_updated}")
-        except Exception as e:
-            print(f"❌ Error updating time: {e}")
+        print("🔄 7a. Updating time...")
+        time_updated, time_update_ok = safe_operation(
+            "update_time", 
+            update_reservation_field, 
+            phone, old_date, old_time, 'time', formatted_new_time
+        )
         
-        # Aggiorna tavolo
-        table_updated = False
-        try:
-            table_updated = update_reservation_field(phone, old_date, formatted_new_time, 'table', new_table)
-            print(f"🔧 DEBUG - table_updated result: {table_updated}")
-        except Exception as e:
-            print(f"❌ Error updating table: {e}")
+        print("🔄 7b. Updating table...")
+        table_updated, table_update_ok = safe_operation(
+            "update_table", 
+            update_reservation_field, 
+            phone, old_date, formatted_new_time, 'table', new_table
+        )
         
-        # SEMPRE restituisci una risposta (semplificata)
-        if time_updated or table_updated:
+        # 8. COSTRUZIONE RISPOSTA
+        print("🔄 PHASE 8: Building response...")
+        print(f"📊 Update results: time_updated={time_updated}, table_updated={table_updated}")
+        
+        if (time_updated and time_update_ok) or (table_updated and table_update_ok):
             response = f"✅ Time updated successfully to {formatted_new_time}! Your table is now {new_table}."
-            print(f"🔧 DEBUG - Returning SUCCESS: {response}")
-            return jsonify({'fulfillmentText': response})
+            log_function_exit("handle_modify_reservation_time", response, True)
+            return create_safe_response(response, "handle_modify_reservation_time")
         else:
             response = f"Update completed. Please call {RESTAURANT_INFO['phone']} to verify changes."
-            print(f"🔧 DEBUG - Returning FALLBACK: {response}")
-            return jsonify({'fulfillmentText': response})
+            log_function_exit("handle_modify_reservation_time", response, False)
+            return create_safe_response(response, "handle_modify_reservation_time")
             
     except Exception as e:
-        print(f"❌ Error in modify_reservation_time: {e}")
+        print(f"❌ CRITICAL ERROR in handle_modify_reservation_time: {str(e)}")
+        print(f"📚 Full traceback: {traceback.format_exc()}")
         response = f'Sorry, error modifying your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'
-        print(f"🔧 DEBUG - Returning ERROR: {response}")
-        return jsonify({'fulfillmentText': response})
+        log_function_exit("handle_modify_reservation_time", response, False)
+        return create_safe_response(response, "handle_modify_reservation_time")
 
 
 def handle_modify_reservation_guests(parameters):
-    """Gestisce modifica del numero di ospiti - FIX RESPONSE SEMPLIFICATA"""
+    """Gestisce modifica del numero di ospiti - SUPER DEBUG"""
+    log_function_entry("handle_modify_reservation_guests", parameters)
+    
     try:
-        print(f"🔧 DEBUG - Modify guests parameters: {parameters}")
-        
-        # Estrai parametri
+        # 1. FASE ESTRAZIONE PARAMETRI
+        print("🔄 PHASE 1: Extracting parameters...")
         phone_raw = parameters.get('phone_number', parameters.get('phone', ''))
-        phone = extract_value(phone_raw)
+        phone, phone_ok = safe_operation("extract_phone", extract_value, phone_raw)
+        
         new_guests_raw = parameters.get('new_guests', parameters.get('guests', parameters.get('number', '')))
-        new_guests = extract_value(new_guests_raw)
+        new_guests, guests_ok = safe_operation("extract_guests", extract_value, new_guests_raw)
         
-        print(f"🔧 DEBUG - Extracted: phone={phone}, new_guests={new_guests}")
+        print(f"📞 Phone: '{phone}' (success: {phone_ok})")
+        print(f"👥 New guests: '{new_guests}' (success: {guests_ok})")
         
-        if not phone:
+        # 2. VALIDAZIONI
+        print("🔄 PHASE 2: Validating inputs...")
+        if not phone or not phone_ok:
             response = "Please provide your phone number to find your reservation."
-            print(f"🔧 DEBUG - Returning: {response}")
-            return jsonify({'fulfillmentText': response})
+            log_function_exit("handle_modify_reservation_guests", response, False)
+            return create_safe_response(response, "handle_modify_reservation_guests")
         
-        if not new_guests:
+        if not new_guests or not guests_ok:
             response = "Please specify the new number of guests for your reservation."
-            print(f"🔧 DEBUG - Returning: {response}")
-            return jsonify({'fulfillmentText': response})
+            log_function_exit("handle_modify_reservation_guests", response, False)
+            return create_safe_response(response, "handle_modify_reservation_guests")
         
-        # Converti numero ospiti
+        # 3. CONVERSIONE NUMERO OSPITI
+        print("🔄 PHASE 3: Converting guest count...")
         try:
             clean_guests = str(new_guests).strip().replace('guests', '').replace('people', '').replace('persons', '').strip()
+            print(f"🧹 Cleaned guests string: '{clean_guests}'")
             
             word_to_num = {
                 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
@@ -262,135 +379,172 @@ def handle_modify_reservation_guests(parameters):
             
             if clean_guests.lower() in word_to_num:
                 guest_count = word_to_num[clean_guests.lower()]
+                print(f"🔤 Converted word to number: {guest_count}")
             else:
                 guest_count = int(float(clean_guests))
+                print(f"🔢 Converted string to number: {guest_count}")
             
             if guest_count < 1 or guest_count > 20:
                 response = "I can accommodate between 1 and 20 guests. Please specify a valid number."
-                print(f"🔧 DEBUG - Returning: {response}")
-                return jsonify({'fulfillmentText': response})
+                log_function_exit("handle_modify_reservation_guests", response, False)
+                return create_safe_response(response, "handle_modify_reservation_guests")
                 
-            print(f"🔧 DEBUG - Final guest_count: {guest_count}")
-            
         except (ValueError, TypeError) as e:
-            print(f"❌ Error converting guests '{new_guests}': {e}")
+            print(f"❌ PHASE 3 FAILED: {str(e)}")
             response = f"Please provide a valid number of guests (you entered: '{new_guests}')."
-            print(f"🔧 DEBUG - Returning: {response}")
-            return jsonify({'fulfillmentText': response})
+            log_function_exit("handle_modify_reservation_guests", response, False)
+            return create_safe_response(response, "handle_modify_reservation_guests")
         
-        # Cerca prenotazione esistente
-        user_reservations = get_user_reservations(phone)
+        # 4. RICERCA PRENOTAZIONI
+        print("🔄 PHASE 4: Searching for reservations...")
+        user_reservations, search_ok = safe_operation("get_user_reservations", get_user_reservations, phone)
+        
+        if not search_ok:
+            response = "Sorry, I'm having trouble accessing your reservations. Please call us."
+            log_function_exit("handle_modify_reservation_guests", response, False)
+            return create_safe_response(response, "handle_modify_reservation_guests")
         
         if not user_reservations:
             response = f"I couldn't find any active reservations for phone number {phone}."
-            print(f"🔧 DEBUG - Returning: {response}")
-            return jsonify({'fulfillmentText': response})
+            log_function_exit("handle_modify_reservation_guests", response, False)
+            return create_safe_response(response, "handle_modify_reservation_guests")
         
         if len(user_reservations) != 1:
             response = f"You have multiple reservations. Please call us at {RESTAURANT_INFO['phone']} to specify which one to modify."
-            print(f"🔧 DEBUG - Returning: {response}")
-            return jsonify({'fulfillmentText': response})
+            log_function_exit("handle_modify_reservation_guests", response, False)
+            return create_safe_response(response, "handle_modify_reservation_guests")
         
+        # 5. ELABORAZIONE PRENOTAZIONE
+        print("🔄 PHASE 5: Processing reservation...")
         reservation = user_reservations[0]
         old_date = reservation.get('Date', '')
         old_time = reservation.get('Time', '')
         old_guests = reservation.get('Guests', 2)
         
-        print(f"🔧 DEBUG - Found reservation: date={old_date}, time={old_time}, old_guests={old_guests}, new_guests={guest_count}")
+        print(f"📊 Current reservation: date={old_date}, time={old_time}, old_guests={old_guests}, new_guests={guest_count}")
         
-        # Controlla disponibilità per il nuovo numero di ospiti (solo una volta!)
+        # 6. CONTROLLO DISPONIBILITÀ
+        print("🔄 PHASE 6: Checking availability...")
         try:
+            print("🔄 6a. Parsing datetime...")
             day_of_week, hour_of_day = parse_dialogflow_datetime(old_date, old_time)
-            result = find_available_table(guest_count, day_of_week, hour_of_day)
+            print(f"📊 Parsed: day_of_week={day_of_week}, hour_of_day={hour_of_day}")
+            
+            print("🔄 6b. Finding available table...")
+            result, avail_ok = safe_operation("find_available_table", find_available_table, guest_count, day_of_week, hour_of_day)
+            
+            if not avail_ok or not result or not result.get('available'):
+                response = f"Sorry, we don't have availability for {guest_count} guests on {old_date} at {old_time}. Please try a different time or date."
+                log_function_exit("handle_modify_reservation_guests", response, False)
+                return create_safe_response(response, "handle_modify_reservation_guests")
+                
         except Exception as e:
-            print(f"❌ Error checking availability: {e}")
+            print(f"❌ PHASE 6 FAILED: {str(e)}")
             response = f"Sorry, I'm having trouble checking availability for {guest_count} guests."
-            print(f"🔧 DEBUG - Returning: {response}")
-            return jsonify({'fulfillmentText': response})
+            log_function_exit("handle_modify_reservation_guests", response, False)
+            return create_safe_response(response, "handle_modify_reservation_guests")
         
-        if not result['available']:
-            response = f"Sorry, we don't have availability for {guest_count} guests on {old_date} at {old_time}. Please try a different time or date."
-            print(f"🔧 DEBUG - Returning: {response}")
-            return jsonify({'fulfillmentText': response})
-        
-        # Aggiorna il numero di ospiti e tavolo
+        # 7. AGGIORNAMENTO PRENOTAZIONE
+        print("🔄 PHASE 7: Updating reservation...")
         new_table = result['table_number']
+        print(f"🆕 New table assigned: {new_table}")
         
-        # Aggiorna numero ospiti
-        guests_updated = False
-        try:
-            guests_updated = update_reservation_field(phone, old_date, old_time, 'guests', guest_count)
-            print(f"🔧 DEBUG - guests_updated result: {guests_updated}")
-        except Exception as e:
-            print(f"❌ Error updating guests: {e}")
+        print("🔄 7a. Updating guest count...")
+        guests_updated, guests_update_ok = safe_operation(
+            "update_guests", 
+            update_reservation_field, 
+            phone, old_date, old_time, 'guests', guest_count
+        )
         
-        # Aggiorna tavolo
-        table_updated = False
-        try:
-            table_updated = update_reservation_field(phone, old_date, old_time, 'table', new_table)
-            print(f"🔧 DEBUG - table_updated result: {table_updated}")
-        except Exception as e:
-            print(f"❌ Error updating table: {e}")
+        print("🔄 7b. Updating table...")
+        table_updated, table_update_ok = safe_operation(
+            "update_table", 
+            update_reservation_field, 
+            phone, old_date, old_time, 'table', new_table
+        )
         
-        # SEMPRE restituisci una risposta (semplificata)
-        if guests_updated or table_updated:
+        # 8. COSTRUZIONE RISPOSTA
+        print("🔄 PHASE 8: Building response...")
+        print(f"📊 Update results: guests_updated={guests_updated}, table_updated={table_updated}")
+        
+        if (guests_updated and guests_update_ok) or (table_updated and table_update_ok):
             response = f"✅ Guest count updated successfully to {guest_count} guests (was {old_guests})! Your table is now {new_table}."
-            print(f"🔧 DEBUG - Returning SUCCESS: {response}")
-            return jsonify({'fulfillmentText': response})
+            log_function_exit("handle_modify_reservation_guests", response, True)
+            return create_safe_response(response, "handle_modify_reservation_guests")
         else:
             response = f"Update completed. Please call {RESTAURANT_INFO['phone']} to verify changes."
-            print(f"🔧 DEBUG - Returning FALLBACK: {response}")
-            return jsonify({'fulfillmentText': response})
+            log_function_exit("handle_modify_reservation_guests", response, False)
+            return create_safe_response(response, "handle_modify_reservation_guests")
             
     except Exception as e:
-        print(f"❌ Error in modify_reservation_guests: {e}")
+        print(f"❌ CRITICAL ERROR in handle_modify_reservation_guests: {str(e)}")
+        print(f"📚 Full traceback: {traceback.format_exc()}")
         response = f'Sorry, error modifying your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'
-        print(f"🔧 DEBUG - Returning ERROR: {response}")
-        return jsonify({'fulfillmentText': response})
+        log_function_exit("handle_modify_reservation_guests", response, False)
+        return create_safe_response(response, "handle_modify_reservation_guests")
 
 
 def handle_modify_reservation(parameters):
-    """Gestisce richiesta di modifica prenotazione - VERSIONE SEMPLIFICATA"""
+    """Gestisce richiesta di modifica prenotazione - SUPER DEBUG"""
+    log_function_entry("handle_modify_reservation", parameters)
+    
     try:
-        print(f"🔧 DEBUG - Modify reservation parameters: {parameters}")
-        
-        # Estrai numero di telefono
         phone_raw = parameters.get('phone_number', parameters.get('phone', ''))
-        phone = extract_value(phone_raw)
+        phone, phone_ok = safe_operation("extract_phone", extract_value, phone_raw)
         
-        print(f"🔧 DEBUG - Extracted phone: {phone}")
-        
-        if not phone:
+        if not phone or not phone_ok:
             response = "Please provide your phone number to find your reservation."
-            print(f"🔧 DEBUG - Returning: {response}")
-            return jsonify({'fulfillmentText': response})
+            log_function_exit("handle_modify_reservation", response, False)
+            return create_safe_response(response, "handle_modify_reservation")
         
-        # Cerca prenotazioni dell'utente
-        user_reservations = get_user_reservations(phone)
+        user_reservations, search_ok = safe_operation("get_user_reservations", get_user_reservations, phone)
+        
+        if not search_ok:
+            response = "Sorry, I'm having trouble accessing your reservations. Please call us."
+            log_function_exit("handle_modify_reservation", response, False)
+            return create_safe_response(response, "handle_modify_reservation")
         
         if not user_reservations:
             response = f"I couldn't find any active reservations for phone number {phone}. Please check the number or call us at {RESTAURANT_INFO['phone']}."
-            print(f"🔧 DEBUG - Returning: {response}")
-            return jsonify({'fulfillmentText': response})
+            log_function_exit("handle_modify_reservation", response, False)
+            return create_safe_response(response, "handle_modify_reservation")
         
         if len(user_reservations) == 1:
-            # Una sola prenotazione - mostra opzioni di modifica (semplificata)
             reservation = user_reservations[0]
             response = f"📋 Your current reservation: {reservation.get('Name', '')} for {reservation.get('Guests', '')} guests on {reservation.get('Date', '')} at {reservation.get('Time', '')} (Table {reservation.get('Table', '')}). What would you like to modify? You can say: 'Change the date to tomorrow', 'Change the time to 8pm' or 'Change to 4 guests'."
-            print(f"🔧 DEBUG - Returning: {response}")
-            return jsonify({'fulfillmentText': response})
+            log_function_exit("handle_modify_reservation", response, True)
+            return create_safe_response(response, "handle_modify_reservation")
         else:
-            # Multiple prenotazioni
             response = f"You have {len(user_reservations)} reservations. Please call us at {RESTAURANT_INFO['phone']} to specify which one to modify."
-            print(f"🔧 DEBUG - Returning: {response}")
-            return jsonify({'fulfillmentText': response})
+            log_function_exit("handle_modify_reservation", response, False)
+            return create_safe_response(response, "handle_modify_reservation")
             
     except Exception as e:
-        print(f"❌ Error in modify_reservation: {e}")
+        print(f"❌ CRITICAL ERROR in handle_modify_reservation: {str(e)}")
+        print(f"📚 Full traceback: {traceback.format_exc()}")
         response = f'Sorry, error finding your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'
-        print(f"🔧 DEBUG - Returning ERROR: {response}")
-        return jsonify({'fulfillmentText': response})
+        log_function_exit("handle_modify_reservation", response, False)
+        return create_safe_response(response, "handle_modify_reservation")
 
+
+# Per ora implemento solo le funzioni di modifica con super debug
+# Le altre funzioni possono essere convertite con lo stesso pattern se necessario
+
+def handle_cancel_reservation(parameters):
+    """Placeholder - aggiungi debug se necessario"""
+    return jsonify({'fulfillmentText': 'Cancel function - debug not implemented yet'})
+
+def handle_check_my_reservation(parameters):
+    """Placeholder - aggiungi debug se necessario"""
+    return jsonify({'fulfillmentText': 'Check function - debug not implemented yet'})
+
+def handle_check_table_specific(parameters):
+    """Placeholder - aggiungi debug se necessario"""
+    return jsonify({'fulfillmentText': 'Check table function - debug not implemented yet'})
+
+def handle_make_reservation(parameters):
+    """Placeholder - aggiungi debug se necessario"""
+    return jsonify({'fulfillmentText': 'Make reservation function - debug not implemented yet'})
 
 def handle_cancel_reservation(parameters):
     """Gestisce richiesta di cancellazione prenotazione - VERSIONE SEMPLIFICATA"""
