@@ -22,7 +22,6 @@ from reservation_handlers import (
     handle_modify_reservation_guests,
     handle_cancel_reservation,
     handle_check_my_reservation,
-    handle_check_availability,
     handle_check_table_specific
 )
 from info_handlers import (
@@ -66,8 +65,6 @@ def dialogflow_webhook():
         # Router degli intent verso i rispettivi handler
         if intent_name == 'make.reservation':
             return handle_make_reservation(parameters)
-        elif intent_name == 'check.availability':
-            return handle_check_availability(parameters)
         elif intent_name == 'check.table.specific':
             return handle_check_table_specific(parameters)
         elif intent_name == 'modify.reservation':
