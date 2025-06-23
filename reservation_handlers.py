@@ -24,6 +24,7 @@ from ml_utils import (
     find_available_table,
     check_table_availability
 )
+from email_manager import send_confirmation_email, send_admin_notification
 
 
 def handle_modify_reservation_date(parameters):
@@ -1111,7 +1112,7 @@ def handle_check_table_specific(parameters):
 
 
 def handle_make_reservation(parameters):
-    """Gestisce prenotazione completa con controlli robusti - MULTIPLE MESSAGES"""
+    """Gestisce prenotazione completa con controlli robusti - MULTIPLE MESSAGES + EMAIL"""
     try:
         print(f"🔧 DEBUG - RAW PARAMETERS: {parameters}")
         
@@ -1292,6 +1293,17 @@ def handle_make_reservation(parameters):
                 print(f"❌ Error saving to sheets: {e}")
                 sheets_saved = False
             
+            # 🆕 INVIA EMAIL DI CONFERMA
+            email_sent = False
+            admin_notified = False
+            
+            try:
+                from email_manager import send_confirmation_email, send_admin_notification
+                email_sent = send_confirmation_email(reservation_data)
+                admin_notified = send_admin_notification(reservation_data)
+            except Exception as e:
+                print(f"❌ Error sending emails: {e}")
+            
             # Risposta di successo con multiple messages
             rich_response = {
                 "fulfillmentText": "🎉 Reservation Confirmed!",
@@ -1343,6 +1355,14 @@ def handle_make_reservation(parameters):
                     }
                 ]
             }
+            
+            # Aggiungi messaggio email se inviata con successo
+            if email_sent:
+                rich_response["fulfillmentMessages"].append({
+                    "text": {
+                        "text": ["📧 Confirmation email sent to your address!"]
+                    }
+                })
             
             # Aggiungi messaggio se sheets non funziona
             if not sheets_saved:
