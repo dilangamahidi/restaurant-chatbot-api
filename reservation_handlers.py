@@ -1042,7 +1042,7 @@ def handle_check_table_specific(parameters):
 
 
 def handle_make_reservation(parameters):
-    """Gestisce prenotazione completa con debugging esteso - FIXED VERSION"""
+    """Gestisce prenotazione completa - FIX TIMEOUT DIALOGFLOW"""
     try:
         print(f"🔧 DEBUG - RAW PARAMETERS: {parameters}")
         
@@ -1168,14 +1168,12 @@ def handle_make_reservation(parameters):
         
         if not model_status:
             print("❌ CRITICAL: ML Model not loaded! Using fallback logic.")
-            # Fallback: assumiamo sempre disponibilità se il modello non funziona
             result = {
                 'available': True,
-                'table_number': 1,  # Assegna tavolo 1 come fallback
+                'table_number': 1,
                 'total_available': 1
             }
         else:
-            # 🔧 CONTROLLA DISPONIBILITÀ CON DEBUG ESTESO
             try:
                 day_of_week, hour_of_day = parse_dialogflow_datetime(date, time)
                 
@@ -1185,27 +1183,20 @@ def handle_make_reservation(parameters):
                 print(f"  guest_count: {guest_count}")
                 print(f"  day_of_week: {day_of_week}")  
                 print(f"  hour_of_day: {hour_of_day}")
-                print(f"  ML results for first 5 tables:")
-                
-                for table_num in range(1, 6):
-                    ml_result = check_table_availability(table_num, guest_count, day_of_week, hour_of_day)
-                    print(f"    Table {table_num}: {'AVAILABLE' if ml_result else 'OCCUPIED'}")
                 
                 result = find_available_table(guest_count, day_of_week, hour_of_day)
                 print(f"  Final ML result: {result}")
                 
-                # 🚨 Se ML dice no ma vogliamo comunque procedere per test
                 if not result['available']:
                     print("⚠️ ML says no availability, but proceeding anyway for testing...")
                     result = {
                         'available': True,
-                        'table_number': 1,  # Forza tavolo 1
+                        'table_number': 1,
                         'total_available': 1
                     }
                 
             except Exception as e:
                 print(f"❌ Error checking availability: {e}")
-                # Fallback in caso di errore
                 result = {
                     'available': True,
                     'table_number': 1,
@@ -1214,7 +1205,6 @@ def handle_make_reservation(parameters):
         
         print(f"🔧 DEBUG - FINAL AVAILABILITY RESULT: {result}")
         
-        # A questo punto result['available'] dovrebbe essere sempre True
         if result['available']:
             table_num = result['table_number']
             
@@ -1239,19 +1229,8 @@ def handle_make_reservation(parameters):
                 print(f"❌ Error saving to sheets: {e}")
                 sheets_saved = False
             
-            # 🆕 INVIA EMAIL DI CONFERMA
-            email_sent = False
-            admin_notified = False
-            
-            try:
-                email_sent = send_confirmation_email(reservation_data)
-                admin_notified = send_admin_notification(reservation_data)
-                print(f"🔧 DEBUG - Email sent: {email_sent}, Admin notified: {admin_notified}")
-            except Exception as e:
-                print(f"❌ Error sending emails: {e}")
-            
-            # 🚨 RISPOSTA DI SUCCESSO GARANTITA
-            print("🔧 DEBUG - Building success response...")
+            # 🚨 RISPOSTA IMMEDIATA A DIALOGFLOW (prima dell'email!)
+            print("🔧 DEBUG - Building IMMEDIATE success response...")
             
             try:
                 rich_response = {
@@ -1301,19 +1280,15 @@ def handle_make_reservation(parameters):
                             "text": {
                                 "text": ["✅ Your reservation is confirmed!"]
                             }
+                        },
+                        {
+                            "text": {
+                                "text": ["📧 A confirmation email will be sent shortly!"]
+                            }
                         }
                     ]
                 }
                 
-                # Aggiungi messaggio email se inviata con successo
-                if email_sent:
-                    rich_response["fulfillmentMessages"].append({
-                        "text": {
-                            "text": ["📧 Confirmation email sent to your address!"]
-                        }
-                    })
-                
-                # Aggiungi messaggio se sheets non funziona
                 if not sheets_saved:
                     rich_response["fulfillmentMessages"].append({
                         "text": {
@@ -1321,18 +1296,41 @@ def handle_make_reservation(parameters):
                         }
                     })
                 
-                print("🔧 DEBUG - Returning success response")
+                print("🔧 DEBUG - Returning IMMEDIATE response to Dialogflow")
+                
+                # 🔄 INVIA EMAIL DOPO aver inviato la risposta (in background)
+                try:
+                    print("🔧 DEBUG - Starting background email sending...")
+                    import threading
+                    
+                    def send_emails_background():
+                        try:
+                            email_sent = send_confirmation_email(reservation_data)
+                            admin_notified = send_admin_notification(reservation_data)
+                            print(f"📧 Background email results: sent={email_sent}, admin={admin_notified}")
+                        except Exception as e:
+                            print(f"❌ Background email error: {e}")
+                    
+                    # Avvia thread per email
+                    email_thread = threading.Thread(target=send_emails_background)
+                    email_thread.daemon = True  # Muore quando l'app si chiude
+                    email_thread.start()
+                    print("🔧 DEBUG - Email thread started in background")
+                    
+                except Exception as e:
+                    print(f"❌ Error starting email thread: {e}")
+                    # Non importa, la risposta è già pronta
+                
                 return jsonify(rich_response)
                 
             except Exception as e:
                 print(f"❌ Error building rich response: {e}")
                 # Fallback a risposta semplice
                 return jsonify({
-                    'fulfillmentText': f"✅ Reservation confirmed for {name} on {formatted_date} at {formatted_time} for {guest_count} guests at table {table_num}!"
+                    'fulfillmentText': f"✅ Reservation confirmed for {name} on {formatted_date} at {formatted_time} for {guest_count} guests at table {table_num}! Confirmation email will be sent shortly."
                 })
                 
         else:
-            # Questo ora non dovrebbe mai accadere con i fallback
             print("❌ UNEXPECTED: No availability after fallbacks!")
             return jsonify({
                 'fulfillmentText': f"😔 Sorry {name}, there was an issue checking availability. Please call us at {RESTAURANT_INFO['phone']}."
