@@ -1250,60 +1250,12 @@ def handle_make_reservation(parameters):
             except Exception as e:
                 print(f"❌ Error sending emails: {e}")
             
-            # 🚨 RISPOSTA DI SUCCESSO GARANTITA
-            print("🔧 DEBUG - Building success response...")
-            
-            try:
-                rich_response = {
-                    "fulfillmentText": "🎉 Reservation Confirmed!",
-                    "fulfillmentMessages": [
-                        {
-                            "text": {
-                                "text": ["🎉 Reservation Confirmed!"]
-                            }
-                        },
-                        {
-                            "text": {
-                                "text": [f"👤 Name: {name}"]
-                            }
-                        },
-                        {
-                            "text": {
-                                "text": [f"📞 Phone: {phone}"]
-                            }
-                        },
-                        {
-                            "text": {
-                                "text": [f"📧 Email: {email}"]
-                            }
-                        },
-                        {
-                            "text": {
-                                "text": [f"👥 Number of guests: {guest_count}"]
-                            }
-                        },
-                        {
-                            "text": {
-                                "text": [f"📅 Date: {formatted_date}"]
-                            }
-                        },
-                        {
-                            "text": {
-                                "text": [f"🕐 Time: {formatted_time}"]
-                            }
-                        },
-                        {
-                            "text": {
-                                "text": [f"🪑 Table assigned: {table_num}"]
-                            }
-                        },
-                        {
-                            "text": {
-                                "text": ["✅ Your reservation is confirmed!"]
-                            }
-                        }
-                    ]
-                }
+            # 🚨 TEST RISPOSTA SEMPLIFICATA
+        print("🔧 DEBUG - Building SIMPLE success response for testing...")
+        
+        return jsonify({
+            'fulfillmentText': f"🎉 Reservation confirmed for {name} on {formatted_date} at {formatted_time} for {guest_count} guests! Table {table_num} assigned. Confirmation email sent to {email}!"
+        })
                 
                 # Aggiungi messaggio email se inviata con successo
                 if email_sent:
