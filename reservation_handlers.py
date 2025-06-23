@@ -22,7 +22,8 @@ from sheets_manager import (
 )
 from ml_utils import (
     find_available_table,
-    check_table_availability
+    check_table_availability,
+    get_model_status  # ← AGGIUNTO QUESTO!
 )
 from email_manager import send_confirmation_email, send_admin_notification
 
