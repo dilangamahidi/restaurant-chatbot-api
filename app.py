@@ -138,3 +138,13 @@ def ping():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+
+@app.route('/test-email-config')
+def test_email_config():
+    import os
+    return jsonify({
+        'EMAIL_USER': os.environ.get('EMAIL_USER', 'NOT SET'),
+        'EMAIL_PASSWORD': '***' if os.environ.get('EMAIL_PASSWORD') else 'NOT SET',
+        'SMTP_SERVER': os.environ.get('SMTP_SERVER', 'NOT SET'),
+        'SMTP_PORT': os.environ.get('SMTP_PORT', 'NOT SET')
+    })
