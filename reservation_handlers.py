@@ -1041,7 +1041,7 @@ def handle_check_table_specific(parameters):
 
 
 def handle_make_reservation(parameters):
-    """Gestisce prenotazione completa con controlli robusti - MULTIPLE MESSAGES + EMAIL"""
+    """Gestisce prenotazione completa con controlli robusti - VERSIONE CORRETTA"""
     try:
         print(f"🔧 DEBUG - RAW PARAMETERS: {parameters}")
         
@@ -1051,7 +1051,6 @@ def handle_make_reservation(parameters):
         email = extract_value(parameters.get('email', ''))
         
         # 🔧 MIGLIORA ESTRAZIONE NUMERO OSPITI
-        # Prova tutte le possibili chiavi per il numero di ospiti
         guests_raw = None
         possible_guest_keys = ['guest_count', 'guests', 'number', 'people', 'party_size', 'num_guests']
         
@@ -1114,52 +1113,68 @@ def handle_make_reservation(parameters):
         # Valida range ospiti
         if guest_count < 1 or guest_count > 20:
             return jsonify({
-                'fulfillmentText': f"I can accommodate between 1 and 20 guests. You requested {guest_count} guests. Please specify a number between 1 and 20."
+                'fulfillmentText': f"Posso ospitare da 1 a 20 persone. Hai richiesto {guest_count} persone. Perfavore specifica un numero tra 1 e 20."
             })
         
-        # Valida gli altri parametri (escludi guests dalla validazione dato che l'abbiamo già gestito)
+        # ✅ CORREZIONE PRINCIPALE: Controlli di validazione più specifici
         validation_errors = []
         
-        # Nome
+        # Nome - controllo più specifico
         if not name or len(str(name).strip()) < 2:
-            validation_errors.append("a valid full name (at least 2 characters)")
+            validation_errors.append("il tuo nome completo (almeno 2 caratteri)")
+            print(f"❌ Nome non valido: '{name}'")
+        else:
+            print(f"✅ Nome valido: '{name}'")
         
-        # Telefono
-        if not phone:
-            validation_errors.append("your phone number")
-        elif not re.match(r'^[\d\s\-\+\(\)]+$', str(phone)):
-            validation_errors.append("a valid phone number")
+        # Telefono - controllo più specifico
+        if not phone or len(str(phone).strip()) < 7:
+            validation_errors.append("il tuo numero di telefono")
+            print(f"❌ Telefono non valido: '{phone}'")
+        else:
+            print(f"✅ Telefono valido: '{phone}'")
         
-        # Email
-        if not email:
-            validation_errors.append("your email address")
-        elif not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', str(email)):
-            validation_errors.append("a valid email address")
+        # Email - controllo più specifico
+        if not email or '@' not in str(email) or '.' not in str(email):
+            validation_errors.append("il tuo indirizzo email")
+            print(f"❌ Email non valida: '{email}'")
+        else:
+            print(f"✅ Email valida: '{email}'")
         
-        # Data
-        if not date:
-            validation_errors.append("the reservation date")
+        # Data - controllo più specifico
+        if not date or len(str(date).strip()) < 3:
+            validation_errors.append("la data della prenotazione")
+            print(f"❌ Data non valida: '{date}'")
+        else:
+            print(f"✅ Data valida: '{date}'")
         
-        # Ora
-        if not time:
-            validation_errors.append("the reservation time")
+        # Ora - controllo più specifico
+        if not time or len(str(time).strip()) < 1:
+            validation_errors.append("l'orario della prenotazione")
+            print(f"❌ Orario non valido: '{time}'")
+        else:
+            print(f"✅ Orario valido: '{time}'")
         
+        # Se ci sono errori di validazione, restituisci messaggio di errore
         if validation_errors:
             if len(validation_errors) == 1:
                 error_text = validation_errors[0]
             elif len(validation_errors) == 2:
-                error_text = f"{validation_errors[0]} and {validation_errors[1]}"
+                error_text = f"{validation_errors[0]} e {validation_errors[1]}"
             else:
-                error_text = f"{', '.join(validation_errors[:-1])}, and {validation_errors[-1]}"
+                error_text = f"{', '.join(validation_errors[:-1])} e {validation_errors[-1]}"
             
+            print(f"❌ Errori di validazione: {validation_errors}")
             return jsonify({
-                'fulfillmentText': f"I need {error_text} to complete your reservation. Please provide the missing information."
+                'fulfillmentText': f"Mi serve {error_text} per completare la tua prenotazione. Perfavore fornisci le informazioni mancanti."
             })
+        
+        print("✅ Tutti i controlli di validazione superati!")
         
         # Formatta data e ora
         try:
             formatted_date = format_date_readable(date)
             formatted_time = format_time_readable(time)
+            print(f"✅ Data formattata: {formatted_date}, Ora formattata: {formatted_time}")
         except Exception as e:
             print(f"❌ Error formatting date/time: {e}")
             formatted_date = str(date)
@@ -1169,7 +1184,7 @@ def handle_make_reservation(parameters):
         try:
             if check_existing_reservation(name, phone, formatted_date, formatted_time):
                 return jsonify({
-                    'fulfillmentText': f"⚠️ You already have a reservation for {formatted_date} at {formatted_time}. Contact us to modify it."
+                    'fulfillmentText': f"⚠️ Hai già una prenotazione per {formatted_date} alle {formatted_time}. Contattaci per modificarla."
                 })
         except Exception as e:
             print(f"❌ Error checking duplicates: {e}")
@@ -1179,18 +1194,12 @@ def handle_make_reservation(parameters):
         try:
             day_of_week, hour_of_day = parse_dialogflow_datetime(date, time)
             
-            # 🔧 DEBUG LOGS - INDENTAZIONE CORRETTA
             print(f"🔧 DEBUG ML INPUT (CREATE RESERVATION):")
             print(f"  date: {date}")
             print(f"  time: {time}")
             print(f"  guest_count: {guest_count}")
             print(f"  day_of_week: {day_of_week}")  
             print(f"  hour_of_day: {hour_of_day}")
-            print(f"  ML results for first 5 tables:")
-            
-            for table_num in range(1, 6):
-                ml_result = check_table_availability(table_num, guest_count, day_of_week, hour_of_day)
-                print(f"    Table {table_num}: {'AVAILABLE' if ml_result else 'OCCUPIED'}")
             
             result = find_available_table(guest_count, day_of_week, hour_of_day)
             print(f"  Final result: {result}")
@@ -1198,7 +1207,7 @@ def handle_make_reservation(parameters):
         except Exception as e:
             print(f"❌ Error checking availability: {e}")
             return jsonify({
-                'fulfillmentText': f"Sorry, I'm having trouble checking availability. Please call us at {RESTAURANT_INFO['phone']}."
+                'fulfillmentText': f"Scusa, sto avendo problemi nel controllare la disponibilità. Perfavore chiamaci al {RESTAURANT_INFO['phone']}."
             })
         
         if result['available']:
@@ -1215,9 +1224,12 @@ def handle_make_reservation(parameters):
                 'table': table_num
             }
             
+            print(f"🔧 DEBUG - Preparando a salvare: {reservation_data}")
+            
             # Salva su Google Sheets
             try:
                 sheets_saved = save_reservation_to_sheets(reservation_data)
+                print(f"🔧 DEBUG - Sheets saved: {sheets_saved}")
             except Exception as e:
                 print(f"❌ Error saving to sheets: {e}")
                 sheets_saved = False
@@ -1227,29 +1239,29 @@ def handle_make_reservation(parameters):
             admin_notified = False
             
             try:
-                from email_manager import send_confirmation_email, send_admin_notification
                 email_sent = send_confirmation_email(reservation_data)
                 admin_notified = send_admin_notification(reservation_data)
+                print(f"🔧 DEBUG - Email sent: {email_sent}, Admin notified: {admin_notified}")
             except Exception as e:
                 print(f"❌ Error sending emails: {e}")
             
             # Risposta di successo con multiple messages
             rich_response = {
-                "fulfillmentText": "🎉 Reservation Confirmed!",
+                "fulfillmentText": "🎉 Prenotazione Confermata!",
                 "fulfillmentMessages": [
                     {
                         "text": {
-                            "text": ["🎉 Reservation Confirmed!"]
+                            "text": ["🎉 Prenotazione Confermata!"]
                         }
                     },
                     {
                         "text": {
-                            "text": [f"👤 Name: {name}"]
+                            "text": [f"👤 Nome: {name}"]
                         }
                     },
                     {
                         "text": {
-                            "text": [f"📞 Phone: {phone}"]
+                            "text": [f"📞 Telefono: {phone}"]
                         }
                     },
                     {
@@ -1259,27 +1271,27 @@ def handle_make_reservation(parameters):
                     },
                     {
                         "text": {
-                            "text": [f"👥 Number of guests: {guest_count}"]
+                            "text": [f"👥 Numero di ospiti: {guest_count}"]
                         }
                     },
                     {
                         "text": {
-                            "text": [f"📅 Date: {formatted_date}"]
+                            "text": [f"📅 Data: {formatted_date}"]
                         }
                     },
                     {
                         "text": {
-                            "text": [f"🕐 Time: {formatted_time}"]
+                            "text": [f"🕐 Ora: {formatted_time}"]
                         }
                     },
                     {
                         "text": {
-                            "text": [f"🪑 Table assigned: {table_num}"]
+                            "text": [f"🪑 Tavolo assegnato: {table_num}"]
                         }
                     },
                     {
                         "text": {
-                            "text": ["✅ Your reservation is confirmed!"]
+                            "text": ["✅ La tua prenotazione è confermata!"]
                         }
                     }
                 ]
@@ -1289,7 +1301,7 @@ def handle_make_reservation(parameters):
             if email_sent:
                 rich_response["fulfillmentMessages"].append({
                     "text": {
-                        "text": ["📧 Confirmation email sent to your address!"]
+                        "text": ["📧 Email di conferma inviata al tuo indirizzo!"]
                     }
                 })
             
@@ -1297,20 +1309,27 @@ def handle_make_reservation(parameters):
             if not sheets_saved:
                 rich_response["fulfillmentMessages"].append({
                     "text": {
-                        "text": ["📝 Note: Our staff will contact you to confirm details."]
+                        "text": ["📝 Nota: Il nostro staff ti contatterà per confermare i dettagli."]
                     }
                 })
             
+            print("✅ Returning success response!")
             return jsonify(rich_response)
             
         else:
-            # Nessuna disponibilità - MULTIPLE MESSAGES
+            # Nessuna disponibilità
+            print("❌ No availability found")
             rich_response = {
-                "fulfillmentText": f"😔 Sorry {name}, no tables available",
+                "fulfillmentText": f"😔 Scusa {name}, nessun tavolo disponibile",
                 "fulfillmentMessages": [
                     {
                         "text": {
-                            "text": [f"😔 Sorry {name}, no tables are available for {guest_count} guests at that time."]
+                            "text": [f"😔 Scusa {name}, non ci sono tavoli disponibili per {guest_count} persone a quell'orario."]
+                        }
+                    },
+                    {
+                        "text": {
+                            "text": ["Prova con una data o orario diverso, oppure chiamaci per più opzioni."]
                         }
                     }
                 ]
@@ -1323,7 +1342,7 @@ def handle_make_reservation(parameters):
         print(f"❌ TRACEBACK: {traceback.format_exc()}")
         
         # Messaggio di errore più specifico
-        error_message = f"I'm sorry, there was a technical issue processing your reservation. "
-        error_message += f"Please call us directly at {RESTAURANT_INFO['phone']} and we'll be happy to help you immediately."
+        error_message = f"Mi dispiace, c'è stato un problema tecnico nell'elaborare la tua prenotazione. "
+        error_message += f"Perfavore chiamaci direttamente al {RESTAURANT_INFO['phone']} e saremo felici di aiutarti immediatamente."
         
         return jsonify({'fulfillmentText': error_message})
