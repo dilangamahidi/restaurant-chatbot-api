@@ -624,7 +624,7 @@ def handle_modify_reservation(parameters):
                     },
                     {
                         "text": {
-                            "text": ["You can say: 'Change the date to tomorrow', 'Change the time to 8pm', 'Change to 4 guests'"]
+                            "text": ["You can say: 'Change the date to tomorrow', 'Change the time to 8pm' or 'Change to 4 guests'."]
                         }
                     }
                 ]
