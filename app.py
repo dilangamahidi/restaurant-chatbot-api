@@ -6,6 +6,8 @@ from flask_cors import CORS
 import os
 import traceback
 from datetime import datetime
+from dotenv import load_dotenv
+load_dotenv()
 
 # Importa da nostri moduli
 from config import RESTAURANT_INFO
