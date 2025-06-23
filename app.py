@@ -135,3 +135,9 @@ def ping():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+
+@app.route('/debug-ml')
+def debug_ml():
+    from ml_utils import test_ml_model, get_model_status
+    test_ml_model()
+    return jsonify({'model_loaded': get_model_status()})
