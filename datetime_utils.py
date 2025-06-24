@@ -1,5 +1,5 @@
 """
-Utility functions per gestione date e orari
+Utility functions per gestione date e orari - FIXED WITH RESTAURANT HOURS VALIDATION
 """
 from datetime import datetime
 
@@ -88,7 +88,7 @@ def convert_day_to_number(day_name):
 
 
 def convert_time_to_hour_improved(time_str):
-    """Versione migliorata per convertire time string in hour per ML"""
+    """Versione migliorata per convertire time string in hour - SENZA LIMITAZIONI"""
     try:
         time_str = str(time_str).lower().strip()
         print(f"🔧 DEBUG - convert_time_to_hour_improved input: '{time_str}'")
@@ -131,20 +131,59 @@ def convert_time_to_hour_improved(time_str):
                 hour = int(time_str)
             print(f"🔧 DEBUG - 24h conversion: {hour}")
         
-        # Controllo orari validi (9-21 = 9AM-9PM)
-        if 9 <= hour <= 21:
-            return hour
-        else:
-            print(f"⚠️ Hour {hour} outside restaurant hours (9-21), using default 19")
-            return 19  # Default 7PM
+        return hour
             
     except Exception as e:
         print(f"❌ Error in convert_time_to_hour_improved: {e}")
         return 19  # Default 7PM
 
 
+def check_restaurant_hours(hour):
+    """
+    Controlla se l'orario è dentro gli orari del ristorante
+    Ritorna: (is_valid, message)
+    """
+    RESTAURANT_OPEN_HOUR = 9   # 9 AM
+    RESTAURANT_CLOSE_HOUR = 21 # 9 PM
+    
+    print(f"🔧 DEBUG - check_restaurant_hours input: {hour}")
+    
+    if RESTAURANT_OPEN_HOUR <= hour <= RESTAURANT_CLOSE_HOUR:
+        print(f"✅ Hour {hour} within restaurant hours ({RESTAURANT_OPEN_HOUR}-{RESTAURANT_CLOSE_HOUR})")
+        return True, None
+    else:
+        print(f"❌ Hour {hour} outside restaurant hours ({RESTAURANT_OPEN_HOUR}-{RESTAURANT_CLOSE_HOUR})")
+        if hour < RESTAURANT_OPEN_HOUR:
+            if hour == 0:
+                time_attempted = "12:00 AM (midnight)"
+            elif hour < 12:
+                time_attempted = f"{hour}:00 AM"
+            else:
+                time_attempted = f"{hour}:00"
+                
+            message = f"Sorry, we're not open at {time_attempted}. Our restaurant is open from 9:00 AM to 9:00 PM. Please choose a time between 9 AM and 9 PM."
+        else:
+            if hour == 12:
+                time_attempted = "12:00 PM (noon)"
+            elif hour < 12:
+                time_attempted = f"{hour}:00 AM"
+            elif hour == 24 or hour == 0:
+                time_attempted = "12:00 AM (midnight)"
+            else:
+                hour_12 = hour - 12 if hour > 12 else hour
+                time_attempted = f"{hour_12}:00 PM"
+                
+            message = f"Sorry, we're not open at {time_attempted}. Our restaurant closes at 9:00 PM. Please choose a time between 9:00 AM and 9:00 PM."
+        
+        return False, message
+
+
 def parse_dialogflow_datetime(date_param, time_param):
-    """Parse date/time da Dialogflow E da Google Sheets - FIX PER TUESDAY BUG"""
+    """
+    Parse date/time da Dialogflow E da Google Sheets - CON VALIDAZIONE ORARI
+    Ritorna: (day_of_week, hour_of_day, error_message)
+    Se error_message non è None, c'è stato un errore di validazione
+    """
     try:
         day_of_week = 5  # Default Saturday
         hour_of_day = 19  # Default 7PM
@@ -235,7 +274,7 @@ def parse_dialogflow_datetime(date_param, time_param):
             else:
                 print(f"❌ Unknown date format: {date_str}")
         
-        # PARSING ORARIO - RIMANE INVARIATO
+        # PARSING ORARIO - CON VALIDAZIONE INVECE DI LIMITAZIONI AUTOMATICHE
         if time_param:
             time_str = str(time_param).strip()
             print(f"🔧 DEBUG - Processing time: '{time_str}'")
@@ -252,26 +291,56 @@ def parse_dialogflow_datetime(date_param, time_param):
             if is_iso_time_format:
                 # Formato ISO da Dialogflow
                 time_part = time_str.split('T')[1].split('+')[0].split('-')[0]  # Handle both +02:00 and -05:00
-                hour_of_day = int(time_part.split(':')[0])
-                print(f"🔧 DEBUG - Parsed ISO time: {time_part}, hour: {hour_of_day}")
+                parsed_hour = int(time_part.split(':')[0])
+                print(f"🔧 DEBUG - Parsed ISO time: {time_part}, parsed_hour: {parsed_hour}")
+                
+                # 🆕 VALIDAZIONE INVECE DI CONVERSIONE AUTOMATICA
+                is_valid, error_msg = check_restaurant_hours(parsed_hour)
+                if not is_valid:
+                    print(f"❌ Time validation failed: {error_msg}")
+                    return day_of_week, parsed_hour, error_msg
+                hour_of_day = parsed_hour
                 
             elif 'AM' in time_str.upper() or 'PM' in time_str.upper():
                 # Formato 12h da Google Sheets (12:00 PM)
-                hour_of_day = convert_time_to_hour_improved(time_str)
-                print(f"🔧 DEBUG - Parsed 12h time: {time_str}, hour: {hour_of_day}")
+                parsed_hour = convert_time_to_hour_improved(time_str)
+                print(f"🔧 DEBUG - Parsed 12h time: {time_str}, parsed_hour: {parsed_hour}")
+                
+                # 🆕 VALIDAZIONE INVECE DI CONVERSIONE AUTOMATICA
+                is_valid, error_msg = check_restaurant_hours(parsed_hour)
+                if not is_valid:
+                    print(f"❌ Time validation failed: {error_msg}")
+                    return day_of_week, parsed_hour, error_msg
+                hour_of_day = parsed_hour
                 
             elif ':' in time_str:
                 # Formato 24h (19:30)
-                hour_of_day = int(time_str.split(':')[0])
-                print(f"🔧 DEBUG - Parsed 24h time: {time_str}, hour: {hour_of_day}")
+                parsed_hour = int(time_str.split(':')[0])
+                print(f"🔧 DEBUG - Parsed 24h time: {time_str}, parsed_hour: {parsed_hour}")
+                
+                # 🆕 VALIDAZIONE INVECE DI CONVERSIONE AUTOMATICA
+                is_valid, error_msg = check_restaurant_hours(parsed_hour)
+                if not is_valid:
+                    print(f"❌ Time validation failed: {error_msg}")
+                    return day_of_week, parsed_hour, error_msg
+                hour_of_day = parsed_hour
                 
             else:
                 # Solo numero (19)
                 try:
-                    hour_of_day = int(time_str)
-                    print(f"🔧 DEBUG - Parsed simple hour: {hour_of_day}")
+                    parsed_hour = int(time_str)
+                    print(f"🔧 DEBUG - Parsed simple hour: {parsed_hour}")
+                    
+                    # 🆕 VALIDAZIONE INVECE DI CONVERSIONE AUTOMATICA
+                    is_valid, error_msg = check_restaurant_hours(parsed_hour)
+                    if not is_valid:
+                        print(f"❌ Time validation failed: {error_msg}")
+                        return day_of_week, parsed_hour, error_msg
+                    hour_of_day = parsed_hour
+                    
                 except ValueError:
                     print(f"❌ Could not parse time: {time_str}")
+                    hour_of_day = 19  # Default se non parsabile
         
         # DEBUG FINALE
         day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -288,13 +357,13 @@ def parse_dialogflow_datetime(date_param, time_param):
             print(f"⚠️ Invalid hour_of_day: {hour_of_day}, using default 19 (7PM)")
             hour_of_day = 19
         
-        return day_of_week, hour_of_day
+        return day_of_week, hour_of_day, None  # None = nessun errore
         
     except Exception as e:
         print(f"❌ Error in parse_dialogflow_datetime: {e}")
         import traceback
         print(f"❌ TRACEBACK: {traceback.format_exc()}")
-        return 5, 19  # Safe defaults
+        return 5, 19, f"Sorry, I had trouble understanding the date or time. Please try again."
 
 
 def format_date_readable(date_string):
