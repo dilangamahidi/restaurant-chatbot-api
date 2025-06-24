@@ -1,5 +1,5 @@
 """
-Handlers per la gestione delle prenotazioni del ristorante - VERSIONE FIX RESPONSE
+Handlers per la gestione delle prenotazioni del ristorante - VERSIONE CON VALIDAZIONE ORARI
 """
 from flask import jsonify
 import re
@@ -89,7 +89,7 @@ def create_safe_response(response_text, func_name):
         return jsonify(fallback_response)
 
 def handle_modify_reservation_date(parameters):
-    """Gestisce modifica della data di prenotazione - SUPER DEBUG"""
+    """Gestisce modifica della data di prenotazione - CON VALIDAZIONE ORARI"""
     log_function_entry("handle_modify_reservation_date", parameters)
     
     try:
@@ -151,11 +151,19 @@ def handle_modify_reservation_date(parameters):
             formatted_new_date = str(new_date)
             print(f"⚠️ Using fallback date format: {formatted_new_date}")
         
-        # 6. CONTROLLO DISPONIBILITÀ
+        # 6. CONTROLLO DISPONIBILITÀ CON VALIDAZIONE ORARI
         print("🔄 PHASE 6: Checking availability...")
         try:
             print("🔄 6a. Parsing datetime...")
-            day_of_week, hour_of_day = parse_dialogflow_datetime(new_date, old_time)
+            day_of_week, hour_of_day, error_message = parse_dialogflow_datetime(new_date, old_time)
+            
+            # 🆕 CONTROLLA SE CI SONO ERRORI DI VALIDAZIONE ORARI
+            if error_message:
+                print(f"❌ PHASE 6 FAILED: Hour validation error")
+                response = error_message
+                log_function_exit("handle_modify_reservation_date", response, False)
+                return create_safe_response(response, "handle_modify_reservation_date")
+            
             print(f"📊 Parsed: day_of_week={day_of_week}, hour_of_day={hour_of_day}")
             
             print("🔄 6b. Finding available table...")
@@ -213,7 +221,7 @@ def handle_modify_reservation_date(parameters):
 
 
 def handle_modify_reservation_time(parameters):
-    """Gestisce modifica dell'orario di prenotazione - SUPER DEBUG"""
+    """Gestisce modifica dell'orario di prenotazione - CON VALIDAZIONE ORARI"""
     log_function_entry("handle_modify_reservation_time", parameters)
     
     try:
@@ -268,21 +276,29 @@ def handle_modify_reservation_time(parameters):
         
         print(f"📊 Current reservation: date={old_date}, time={old_time}, guests={guests}")
         
-        # 5. FORMATTAZIONE ORARIO
-        print("🔄 PHASE 5: Formatting new time...")
-        formatted_new_time, format_ok = safe_operation("format_time_readable", format_time_readable, new_time)
-        if not format_ok:
-            formatted_new_time = str(new_time)
-            print(f"⚠️ Using fallback time format: {formatted_new_time}")
-        
-        # 6. CONTROLLO DISPONIBILITÀ
-        print("🔄 PHASE 6: Checking availability...")
+        # 5. CONTROLLO DISPONIBILITÀ CON VALIDAZIONE ORARI
+        print("🔄 PHASE 5: Checking availability...")
         try:
-            print("🔄 6a. Parsing datetime...")
-            day_of_week, hour_of_day = parse_dialogflow_datetime(old_date, new_time)
+            print("🔄 5a. Parsing datetime...")
+            day_of_week, hour_of_day, error_message = parse_dialogflow_datetime(old_date, new_time)
+            
+            # 🆕 CONTROLLA SE CI SONO ERRORI DI VALIDAZIONE ORARI
+            if error_message:
+                print(f"❌ PHASE 5 FAILED: Hour validation error")
+                response = error_message
+                log_function_exit("handle_modify_reservation_time", response, False)
+                return create_safe_response(response, "handle_modify_reservation_time")
+            
             print(f"📊 Parsed: day_of_week={day_of_week}, hour_of_day={hour_of_day}")
             
-            print("🔄 6b. Finding available table...")
+            # 5b. FORMATTAZIONE ORARIO (dopo validazione)
+            print("🔄 5b. Formatting new time...")
+            formatted_new_time, format_ok = safe_operation("format_time_readable", format_time_readable, new_time)
+            if not format_ok:
+                formatted_new_time = str(new_time)
+                print(f"⚠️ Using fallback time format: {formatted_new_time}")
+            
+            print("🔄 5c. Finding available table...")
             result, avail_ok = safe_operation("find_available_table", find_available_table, int(guests), day_of_week, hour_of_day)
             
             if not avail_ok or not result or not result.get('available'):
@@ -291,32 +307,32 @@ def handle_modify_reservation_time(parameters):
                 return create_safe_response(response, "handle_modify_reservation_time")
                 
         except Exception as e:
-            print(f"❌ PHASE 6 FAILED: {str(e)}")
+            print(f"❌ PHASE 5 FAILED: {str(e)}")
             response = "Sorry, I'm having trouble checking availability for the new time."
             log_function_exit("handle_modify_reservation_time", response, False)
             return create_safe_response(response, "handle_modify_reservation_time")
         
-        # 7. AGGIORNAMENTO PRENOTAZIONE
-        print("🔄 PHASE 7: Updating reservation...")
+        # 6. AGGIORNAMENTO PRENOTAZIONE
+        print("🔄 PHASE 6: Updating reservation...")
         new_table = result['table_number']
         print(f"🆕 New table assigned: {new_table}")
         
-        print("🔄 7a. Updating time...")
+        print("🔄 6a. Updating time...")
         time_updated, time_update_ok = safe_operation(
             "update_time", 
             update_reservation_field, 
             phone, old_date, old_time, 'time', formatted_new_time
         )
         
-        print("🔄 7b. Updating table...")
+        print("🔄 6b. Updating table...")
         table_updated, table_update_ok = safe_operation(
             "update_table", 
             update_reservation_field, 
             phone, old_date, formatted_new_time, 'table', new_table
         )
         
-        # 8. COSTRUZIONE RISPOSTA
-        print("🔄 PHASE 8: Building response...")
+        # 7. COSTRUZIONE RISPOSTA
+        print("🔄 PHASE 7: Building response...")
         print(f"📊 Update results: time_updated={time_updated}, table_updated={table_updated}")
         
         if (time_updated and time_update_ok) or (table_updated and table_update_ok):
@@ -336,8 +352,157 @@ def handle_modify_reservation_time(parameters):
         return create_safe_response(response, "handle_modify_reservation_time")
 
 
+def handle_make_reservation(parameters):
+    """Gestisce prenotazione completa - CON VALIDAZIONE ORARI"""
+    try:
+        print(f"🔧 DEBUG - Make reservation parameters: {parameters}")
+        
+        # Estrai parametri con controlli robusti
+        name = extract_value(parameters.get('name', parameters.get('person', '')))
+        phone = extract_value(parameters.get('phone_number', parameters.get('phone', '')))
+        email = extract_value(parameters.get('email', ''))
+        guests = extract_value(parameters.get('guest_count', parameters.get('guests', parameters.get('number', 2))))
+        date = extract_value(parameters.get('day_of_week', parameters.get('date', '')))
+        time = extract_value(parameters.get('hour_of_day', parameters.get('time', '')))
+        
+        print(f"🔧 DEBUG - Extracted: name={name}, phone={phone}, email={email}, guests={guests}, date={date}, time={time}")
+        
+        # Converti numero ospiti
+        try:
+            guest_str = str(guests).strip().lower().replace('guests', '').replace('people', '').strip()
+            guest_count = int(float(guest_str)) if guest_str else 2
+            
+            if guest_count < 1 or guest_count > 20:
+                response = f"I can accommodate between 1 and 20 guests. You requested {guest_count} guests."
+                print(f"🔧 DEBUG - Returning: {response}")
+                return jsonify({'fulfillmentText': response})
+                
+        except (ValueError, TypeError):
+            guest_count = 2  # Default fallback
+        
+        # Valida parametri essenziali
+        if not name or len(str(name).strip()) < 2:
+            response = "I need your full name to complete the reservation."
+            print(f"🔧 DEBUG - Returning: {response}")
+            return jsonify({'fulfillmentText': response})
+        
+        if not phone:
+            response = "I need your phone number to complete the reservation."
+            print(f"🔧 DEBUG - Returning: {response}")
+            return jsonify({'fulfillmentText': response})
+        
+        if not email or '@' not in str(email):
+            response = "I need a valid email address to complete the reservation."
+            print(f"🔧 DEBUG - Returning: {response}")
+            return jsonify({'fulfillmentText': response})
+        
+        if not date or not time:
+            response = "I need both the date and time for your reservation."
+            print(f"🔧 DEBUG - Returning: {response}")
+            return jsonify({'fulfillmentText': response})
+        
+        # 🆕 VALIDAZIONE ORARI DURANTE LA PRENOTAZIONE
+        try:
+            day_of_week, hour_of_day, error_message = parse_dialogflow_datetime(date, time)
+            
+            # Se c'è un errore di validazione orari, ritorna il messaggio di errore
+            if error_message:
+                print(f"❌ Hour validation failed: {error_message}")
+                return jsonify({'fulfillmentText': error_message})
+                
+        except Exception as e:
+            print(f"❌ Error validating date/time: {e}")
+            response = "Sorry, I had trouble understanding the date or time you requested. Please try again with a clear date and time between 9 AM and 9 PM."
+            return jsonify({'fulfillmentText': response})
+        
+        # Formatta data e ora (dopo validazione)
+        try:
+            formatted_date = format_date_readable(date)
+            formatted_time = format_time_readable(time)
+        except Exception as e:
+            print(f"❌ Error formatting date/time: {e}")
+            formatted_date = str(date)
+            formatted_time = str(time)
+        
+        # Controllo duplicati
+        try:
+            if check_existing_reservation(name, phone, formatted_date, formatted_time):
+                response = f"⚠️ You already have a reservation for {formatted_date} at {formatted_time}."
+                print(f"🔧 DEBUG - Returning: {response}")
+                return jsonify({'fulfillmentText': response})
+        except Exception as e:
+            print(f"❌ Error checking duplicates: {e}")
+        
+        # Controlla disponibilità (ora che sappiamo che l'orario è valido)
+        try:
+            result = find_available_table(guest_count, day_of_week, hour_of_day)
+            
+            if not result['available']:
+                response = f"😔 Sorry, we don't have availability for {guest_count} guests on {formatted_date} at {formatted_time}. Please try a different time within our hours (9 AM - 9 PM)."
+                print(f"🔧 DEBUG - Returning: {response}")
+                return jsonify({'fulfillmentText': response})
+                
+        except Exception as e:
+            print(f"❌ Error checking availability: {e}")
+            # Fallback: assegna tavolo 1 e procedi
+            result = {'available': True, 'table_number': 1}
+        
+        # Salva prenotazione
+        table_num = result['table_number']
+        reservation_data = {
+            'name': str(name).strip(),
+            'phone': str(phone).strip(),
+            'email': str(email).strip(),
+            'guests': guest_count,
+            'date': formatted_date,
+            'time': formatted_time,
+            'table': table_num
+        }
+        
+        # Salva su Google Sheets
+        try:
+            sheets_saved = save_reservation_to_sheets(reservation_data)
+        except Exception as e:
+            print(f"❌ Error saving to sheets: {e}")
+            sheets_saved = False
+        
+        # RISPOSTA IMMEDIATA (sempre semplificata)
+        if sheets_saved:
+            response = f"🎉 Reservation confirmed for {name}! {guest_count} guests on {formatted_date} at {formatted_time}, Table {table_num}. Confirmation email will be sent shortly!"
+        else:
+            response = f"✅ Reservation received for {name}! {guest_count} guests on {formatted_date} at {formatted_time}. Our staff will contact you to confirm details."
+        
+        print(f"🔧 DEBUG - Returning SUCCESS: {response}")
+        
+        # Email in background (non blocca la risposta)
+        try:
+            import threading
+            def send_emails_background():
+                try:
+                    send_confirmation_email(reservation_data)
+                    send_admin_notification(reservation_data)
+                    print("📧 Background emails sent")
+                except:
+                    print("❌ Background email failed")
+            
+            email_thread = threading.Thread(target=send_emails_background)
+            email_thread.daemon = True
+            email_thread.start()
+        except:
+            pass  # Non importa se l'email fallisce
+        
+        return jsonify({'fulfillmentText': response})
+        
+    except Exception as e:
+        print(f"❌ CRITICAL ERROR in make_reservation: {e}")
+        response = f"I'm sorry, there was a technical issue. Please call us directly at {RESTAURANT_INFO['phone']} and we'll be happy to help you."
+        print(f"🔧 DEBUG - Returning CRITICAL ERROR: {response}")
+        return jsonify({'fulfillmentText': response})
+
+
+# Le altre funzioni rimangono uguali per ora
 def handle_modify_reservation_guests(parameters):
-    """Gestisce modifica del numero di ospiti - SUPER DEBUG"""
+    """Gestisce modifica del numero di ospiti - VERSIONE PRECEDENTE"""
     log_function_entry("handle_modify_reservation_guests", parameters)
     
     try:
@@ -427,7 +592,13 @@ def handle_modify_reservation_guests(parameters):
         print("🔄 PHASE 6: Checking availability...")
         try:
             print("🔄 6a. Parsing datetime...")
-            day_of_week, hour_of_day = parse_dialogflow_datetime(old_date, old_time)
+            day_of_week, hour_of_day, error_message = parse_dialogflow_datetime(old_date, old_time)
+            
+            # Controlla errori di validazione (anche se è un orario esistente)
+            if error_message:
+                print(f"⚠️ Warning: Existing reservation has invalid time, proceeding anyway")
+                # In questo caso procediamo comunque perché è una prenotazione esistente
+            
             print(f"📊 Parsed: day_of_week={day_of_week}, hour_of_day={hour_of_day}")
             
             print("🔄 6b. Finding available table...")
@@ -485,7 +656,7 @@ def handle_modify_reservation_guests(parameters):
 
 
 def handle_modify_reservation(parameters):
-    """Gestisce richiesta di modifica prenotazione - SUPER DEBUG"""
+    """Gestisce richiesta di modifica prenotazione - VERSIONE PRECEDENTE"""
     log_function_entry("handle_modify_reservation", parameters)
     
     try:
@@ -526,25 +697,6 @@ def handle_modify_reservation(parameters):
         log_function_exit("handle_modify_reservation", response, False)
         return create_safe_response(response, "handle_modify_reservation")
 
-
-# Per ora implemento solo le funzioni di modifica con super debug
-# Le altre funzioni possono essere convertite con lo stesso pattern se necessario
-
-def handle_cancel_reservation(parameters):
-    """Placeholder - aggiungi debug se necessario"""
-    return jsonify({'fulfillmentText': 'Cancel function - debug not implemented yet'})
-
-def handle_check_my_reservation(parameters):
-    """Placeholder - aggiungi debug se necessario"""
-    return jsonify({'fulfillmentText': 'Check function - debug not implemented yet'})
-
-def handle_check_table_specific(parameters):
-    """Placeholder - aggiungi debug se necessario"""
-    return jsonify({'fulfillmentText': 'Check table function - debug not implemented yet'})
-
-def handle_make_reservation(parameters):
-    """Placeholder - aggiungi debug se necessario"""
-    return jsonify({'fulfillmentText': 'Make reservation function - debug not implemented yet'})
 
 def handle_cancel_reservation(parameters):
     """Gestisce richiesta di cancellazione prenotazione - VERSIONE SEMPLIFICATA"""
@@ -650,7 +802,7 @@ def handle_check_my_reservation(parameters):
 
 
 def handle_check_table_specific(parameters):
-    """Gestisce controllo tavolo specifico - VERSIONE SEMPLIFICATA"""
+    """Gestisce controllo tavolo specifico - CON VALIDAZIONE ORARI"""
     try:
         print(f"🔧 DEBUG - Check table parameters: {parameters}")
         
@@ -692,9 +844,15 @@ def handle_check_table_specific(parameters):
             print(f"🔧 DEBUG - Returning: {response}")
             return jsonify({'fulfillmentText': response})
         
-        # Converti date/time per ML
+        # 🆕 VALIDAZIONE ORARI NELLA RICERCA TAVOLO
         try:
-            day_of_week, hour_of_day = parse_dialogflow_datetime(date, time)
+            day_of_week, hour_of_day, error_message = parse_dialogflow_datetime(date, time)
+            
+            # Se c'è un errore di validazione orari, ritorna il messaggio di errore
+            if error_message:
+                print(f"❌ Hour validation failed: {error_message}")
+                return jsonify({'fulfillmentText': error_message})
+            
             is_available = check_table_availability(table_num, 4, day_of_week, hour_of_day)  # Default 4 guests
             
             # Formatta data e ora
@@ -719,139 +877,4 @@ def handle_check_table_specific(parameters):
         print(f"❌ Error in check_table_specific: {e}")
         response = 'Sorry, error checking table availability. Please call us.'
         print(f"🔧 DEBUG - Returning ERROR: {response}")
-        return jsonify({'fulfillmentText': response})
-
-
-def handle_make_reservation(parameters):
-    """Gestisce prenotazione completa - VERSIONE SEMPLIFICATA SENZA TIMEOUT"""
-    try:
-        print(f"🔧 DEBUG - Make reservation parameters: {parameters}")
-        
-        # Estrai parametri con controlli robusti
-        name = extract_value(parameters.get('name', parameters.get('person', '')))
-        phone = extract_value(parameters.get('phone_number', parameters.get('phone', '')))
-        email = extract_value(parameters.get('email', ''))
-        guests = extract_value(parameters.get('guest_count', parameters.get('guests', parameters.get('number', 2))))
-        date = extract_value(parameters.get('day_of_week', parameters.get('date', '')))
-        time = extract_value(parameters.get('hour_of_day', parameters.get('time', '')))
-        
-        print(f"🔧 DEBUG - Extracted: name={name}, phone={phone}, email={email}, guests={guests}, date={date}, time={time}")
-        
-        # Converti numero ospiti
-        try:
-            guest_str = str(guests).strip().lower().replace('guests', '').replace('people', '').strip()
-            guest_count = int(float(guest_str)) if guest_str else 2
-            
-            if guest_count < 1 or guest_count > 20:
-                response = f"I can accommodate between 1 and 20 guests. You requested {guest_count} guests."
-                print(f"🔧 DEBUG - Returning: {response}")
-                return jsonify({'fulfillmentText': response})
-                
-        except (ValueError, TypeError):
-            guest_count = 2  # Default fallback
-        
-        # Valida parametri essenziali
-        if not name or len(str(name).strip()) < 2:
-            response = "I need your full name to complete the reservation."
-            print(f"🔧 DEBUG - Returning: {response}")
-            return jsonify({'fulfillmentText': response})
-        
-        if not phone:
-            response = "I need your phone number to complete the reservation."
-            print(f"🔧 DEBUG - Returning: {response}")
-            return jsonify({'fulfillmentText': response})
-        
-        if not email or '@' not in str(email):
-            response = "I need a valid email address to complete the reservation."
-            print(f"🔧 DEBUG - Returning: {response}")
-            return jsonify({'fulfillmentText': response})
-        
-        if not date or not time:
-            response = "I need both the date and time for your reservation."
-            print(f"🔧 DEBUG - Returning: {response}")
-            return jsonify({'fulfillmentText': response})
-        
-        # Formatta data e ora
-        try:
-            formatted_date = format_date_readable(date)
-            formatted_time = format_time_readable(time)
-        except Exception as e:
-            print(f"❌ Error formatting date/time: {e}")
-            formatted_date = str(date)
-            formatted_time = str(time)
-        
-        # Controllo duplicati
-        try:
-            if check_existing_reservation(name, phone, formatted_date, formatted_time):
-                response = f"⚠️ You already have a reservation for {formatted_date} at {formatted_time}."
-                print(f"🔧 DEBUG - Returning: {response}")
-                return jsonify({'fulfillmentText': response})
-        except Exception as e:
-            print(f"❌ Error checking duplicates: {e}")
-        
-        # Controlla disponibilità (con fallback se ML non funziona)
-        try:
-            day_of_week, hour_of_day = parse_dialogflow_datetime(date, time)
-            result = find_available_table(guest_count, day_of_week, hour_of_day)
-            
-            if not result['available']:
-                response = f"😔 Sorry, we don't have availability for {guest_count} guests on {formatted_date} at {formatted_time}. Please try a different time."
-                print(f"🔧 DEBUG - Returning: {response}")
-                return jsonify({'fulfillmentText': response})
-                
-        except Exception as e:
-            print(f"❌ Error checking availability: {e}")
-            # Fallback: assegna tavolo 1 e procedi
-            result = {'available': True, 'table_number': 1}
-        
-        # Salva prenotazione
-        table_num = result['table_number']
-        reservation_data = {
-            'name': str(name).strip(),
-            'phone': str(phone).strip(),
-            'email': str(email).strip(),
-            'guests': guest_count,
-            'date': formatted_date,
-            'time': formatted_time,
-            'table': table_num
-        }
-        
-        # Salva su Google Sheets
-        try:
-            sheets_saved = save_reservation_to_sheets(reservation_data)
-        except Exception as e:
-            print(f"❌ Error saving to sheets: {e}")
-            sheets_saved = False
-        
-        # RISPOSTA IMMEDIATA (sempre semplificata)
-        if sheets_saved:
-            response = f"🎉 Reservation confirmed for {name}! {guest_count} guests on {formatted_date} at {formatted_time}, Table {table_num}. Confirmation email will be sent shortly!"
-        else:
-            response = f"✅ Reservation received for {name}! {guest_count} guests on {formatted_date} at {formatted_time}. Our staff will contact you to confirm details."
-        
-        print(f"🔧 DEBUG - Returning SUCCESS: {response}")
-        
-        # Email in background (non blocca la risposta)
-        try:
-            import threading
-            def send_emails_background():
-                try:
-                    send_confirmation_email(reservation_data)
-                    send_admin_notification(reservation_data)
-                    print("📧 Background emails sent")
-                except:
-                    print("❌ Background email failed")
-            
-            email_thread = threading.Thread(target=send_emails_background)
-            email_thread.daemon = True
-            email_thread.start()
-        except:
-            pass  # Non importa se l'email fallisce
-        
-        return jsonify({'fulfillmentText': response})
-        
-    except Exception as e:
-        print(f"❌ CRITICAL ERROR in make_reservation: {e}")
-        response = f"I'm sorry, there was a technical issue. Please call us directly at {RESTAURANT_INFO['phone']} and we'll be happy to help you."
-        print(f"🔧 DEBUG - Returning CRITICAL ERROR: {response}")
         return jsonify({'fulfillmentText': response})
