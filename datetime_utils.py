@@ -1,5 +1,5 @@
 """
-Utility functions per gestione date e orari - FIXED CONSISTENT TIME LIMITS
+Utility functions per gestione date e orari
 """
 from datetime import datetime
 
@@ -88,7 +88,7 @@ def convert_day_to_number(day_name):
 
 
 def convert_time_to_hour_improved(time_str):
-    """Versione migliorata per convertire time string in hour - SENZA LIMITAZIONI"""
+    """Versione migliorata per convertire time string in hour per ML"""
     try:
         time_str = str(time_str).lower().strip()
         print(f"🔧 DEBUG - convert_time_to_hour_improved input: '{time_str}'")
@@ -131,33 +131,20 @@ def convert_time_to_hour_improved(time_str):
                 hour = int(time_str)
             print(f"🔧 DEBUG - 24h conversion: {hour}")
         
-        # 🔧 RIMOSSA LA LIMITAZIONE QUI - LA APPLICHEREMO CENTRALMENTE
-        return hour
+        # Controllo orari validi (9-21 = 9AM-9PM)
+        if 9 <= hour <= 21:
+            return hour
+        else:
+            print(f"⚠️ Hour {hour} outside restaurant hours (9-21), using default 19")
+            return 19  # Default 7PM
             
     except Exception as e:
         print(f"❌ Error in convert_time_to_hour_improved: {e}")
         return 19  # Default 7PM
 
 
-def apply_restaurant_hours_limit(hour):
-    """Applica le limitazioni orarie del ristorante in modo consistente"""
-    # 🔧 DEFINISCI QUI GLI ORARI DEL RISTORANTE
-    RESTAURANT_OPEN_HOUR = 9   # 9 AM
-    RESTAURANT_CLOSE_HOUR = 21 # 9 PM
-    DEFAULT_HOUR = 19          # 7 PM default
-    
-    print(f"🔧 DEBUG - apply_restaurant_hours_limit input: {hour}")
-    
-    if RESTAURANT_OPEN_HOUR <= hour <= RESTAURANT_CLOSE_HOUR:
-        print(f"✅ Hour {hour} within restaurant hours ({RESTAURANT_OPEN_HOUR}-{RESTAURANT_CLOSE_HOUR})")
-        return hour
-    else:
-        print(f"⚠️ Hour {hour} outside restaurant hours ({RESTAURANT_OPEN_HOUR}-{RESTAURANT_CLOSE_HOUR}), using default {DEFAULT_HOUR}")
-        return DEFAULT_HOUR
-
-
 def parse_dialogflow_datetime(date_param, time_param):
-    """Parse date/time da Dialogflow E da Google Sheets - CON LIMITAZIONI CONSISTENTI"""
+    """Parse date/time da Dialogflow E da Google Sheets - FIX PER TUESDAY BUG"""
     try:
         day_of_week = 5  # Default Saturday
         hour_of_day = 19  # Default 7PM
@@ -248,7 +235,7 @@ def parse_dialogflow_datetime(date_param, time_param):
             else:
                 print(f"❌ Unknown date format: {date_str}")
         
-        # PARSING ORARIO - CON LIMITAZIONI CONSISTENTI
+        # PARSING ORARIO - RIMANE INVARIATO
         if time_param:
             time_str = str(time_param).strip()
             print(f"🔧 DEBUG - Processing time: '{time_str}'")
@@ -265,35 +252,26 @@ def parse_dialogflow_datetime(date_param, time_param):
             if is_iso_time_format:
                 # Formato ISO da Dialogflow
                 time_part = time_str.split('T')[1].split('+')[0].split('-')[0]  # Handle both +02:00 and -05:00
-                raw_hour = int(time_part.split(':')[0])
-                print(f"🔧 DEBUG - Parsed ISO time: {time_part}, raw_hour: {raw_hour}")
-                # 🔧 APPLICA LIMITAZIONI ANCHE QUI
-                hour_of_day = apply_restaurant_hours_limit(raw_hour)
+                hour_of_day = int(time_part.split(':')[0])
+                print(f"🔧 DEBUG - Parsed ISO time: {time_part}, hour: {hour_of_day}")
                 
             elif 'AM' in time_str.upper() or 'PM' in time_str.upper():
                 # Formato 12h da Google Sheets (12:00 PM)
-                raw_hour = convert_time_to_hour_improved(time_str)
-                print(f"🔧 DEBUG - Parsed 12h time: {time_str}, raw_hour: {raw_hour}")
-                # 🔧 APPLICA LIMITAZIONI ANCHE QUI
-                hour_of_day = apply_restaurant_hours_limit(raw_hour)
+                hour_of_day = convert_time_to_hour_improved(time_str)
+                print(f"🔧 DEBUG - Parsed 12h time: {time_str}, hour: {hour_of_day}")
                 
             elif ':' in time_str:
                 # Formato 24h (19:30)
-                raw_hour = int(time_str.split(':')[0])
-                print(f"🔧 DEBUG - Parsed 24h time: {time_str}, raw_hour: {raw_hour}")
-                # 🔧 APPLICA LIMITAZIONI ANCHE QUI
-                hour_of_day = apply_restaurant_hours_limit(raw_hour)
+                hour_of_day = int(time_str.split(':')[0])
+                print(f"🔧 DEBUG - Parsed 24h time: {time_str}, hour: {hour_of_day}")
                 
             else:
                 # Solo numero (19)
                 try:
-                    raw_hour = int(time_str)
-                    print(f"🔧 DEBUG - Parsed simple hour: {raw_hour}")
-                    # 🔧 APPLICA LIMITAZIONI ANCHE QUI
-                    hour_of_day = apply_restaurant_hours_limit(raw_hour)
+                    hour_of_day = int(time_str)
+                    print(f"🔧 DEBUG - Parsed simple hour: {hour_of_day}")
                 except ValueError:
                     print(f"❌ Could not parse time: {time_str}")
-                    hour_of_day = apply_restaurant_hours_limit(19)  # Default
         
         # DEBUG FINALE
         day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
