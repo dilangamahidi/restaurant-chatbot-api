@@ -209,6 +209,56 @@ def test_sheets_endpoint():
             "traceback": traceback.format_exc()
         })
 
+# Aggiungi questo altro endpoint di test
+@app.route('/test-env', methods=['GET'])
+def test_environment():
+    """Test environment variables"""
+    try:
+        import os
+        import json
+        
+        # Test 1: Verifica se GOOGLE_CREDENTIALS esiste
+        google_creds = os.environ.get('GOOGLE_CREDENTIALS')
+        
+        if not google_creds:
+            return jsonify({
+                "status": "error",
+                "message": "GOOGLE_CREDENTIALS not found in environment",
+                "available_vars": [key for key in os.environ.keys() if 'GOOGLE' in key.upper()]
+            })
+        
+        # Test 2: Verifica se è un JSON valido
+        try:
+            creds_dict = json.loads(google_creds)
+            project_id = creds_dict.get('project_id', 'NOT_FOUND')
+            client_email = creds_dict.get('client_email', 'NOT_FOUND')
+            has_private_key = 'private_key' in creds_dict
+            
+            return jsonify({
+                "status": "success",
+                "google_credentials_found": True,
+                "json_valid": True,
+                "project_id": project_id,
+                "client_email": client_email,
+                "has_private_key": has_private_key,
+                "json_length": len(google_creds)
+            })
+            
+        except json.JSONDecodeError as e:
+            return jsonify({
+                "status": "error",
+                "message": "GOOGLE_CREDENTIALS is not valid JSON",
+                "json_error": str(e),
+                "first_100_chars": google_creds[:100] if google_creds else "None"
+            })
+            
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e),
+            "traceback": traceback.format_exc()
+        })
+
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
