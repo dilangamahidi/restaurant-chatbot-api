@@ -8,7 +8,7 @@ SCOPES = [
     'https://www.googleapis.com/auth/drive'
 ]
 
-SHEET_ID = "1QTaGoxeQur4Rh03tJETcRwExbmTvU1FF6TE1v0UjuMk"
+SHEET_ID = "1CyXLrD9qltqODWzPI3Nx8bLec29dtm_thqBGf_bi35I"
 
 # Info ristorante - AGGIORNATE PER RESTORAN
 RESTAURANT_INFO = {
