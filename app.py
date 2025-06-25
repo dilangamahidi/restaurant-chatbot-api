@@ -150,3 +150,66 @@ def debug_ml():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+
+# Aggiungi questo test alla fine del tuo app.py per debug
+@app.route('/test-sheets', methods=['GET'])
+def test_sheets_endpoint():
+    """Endpoint di test per Google Sheets"""
+    try:
+        from sheets_manager import init_google_sheets, save_reservation_to_sheets
+        
+        print("🔧 Testing Google Sheets connection...")
+        
+        # Test 1: Connessione
+        sheet = init_google_sheets()
+        if not sheet:
+            return jsonify({"status": "error", "message": "Cannot connect to Google Sheets"})
+        
+        # Test 2: Lettura headers
+        try:
+            headers = sheet.row_values(1)
+            print(f"📊 Sheet headers: {headers}")
+        except Exception as e:
+            headers = f"Error reading headers: {e}"
+        
+        # Test 3: Conteggio righe
+        try:
+            all_values = sheet.get_all_values()
+            row_count = len(all_values)
+            print(f"📊 Total rows: {row_count}")
+        except Exception as e:
+            row_count = f"Error counting rows: {e}"
+        
+        # Test 4: Test data
+        test_reservation = {
+            'name': 'TEST USER',
+            'phone': '1234567890', 
+            'email': 'test@test.com',
+            'guests': 2,
+            'date': '2024-01-01',
+            'time': '12:00',
+            'table': 1
+        }
+        
+        # Test 5: Scrittura
+        try:
+            save_result = save_reservation_to_sheets(test_reservation)
+            print(f"📊 Save result: {save_result}")
+        except Exception as e:
+            save_result = f"Error saving: {e}"
+        
+        return jsonify({
+            "status": "success",
+            "sheet_connected": True,
+            "headers": headers,
+            "row_count": row_count,
+            "save_test": save_result,
+            "sheet_id": "1CyXLrD9qltqODWzPI3Nx8bLec29dtm_thqBGf_bi35I"
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "status": "error", 
+            "message": str(e),
+            "traceback": traceback.format_exc()
+        })
