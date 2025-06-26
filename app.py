@@ -1,5 +1,5 @@
 """
-Main Flask application for restaurant - Modularized and reduced version
+Main Flask application for restaurant
 """
 from flask import Flask, request, jsonify
 from flask_cors import CORS
