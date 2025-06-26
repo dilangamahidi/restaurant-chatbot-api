@@ -1,5 +1,5 @@
 """
-Main Flask application for restaurant - Modularized and reduced version
+Main Flask application for restaurant
 """
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -115,38 +115,7 @@ def dialogflow_webhook():
             'fulfillmentText': f"I'm experiencing technical difficulties. Please call us at {RESTAURANT_INFO['phone']} for immediate assistance."
         })
 
-
-@app.route('/test')
-def test():
-    """Test endpoint to verify ML model functionality"""
-    from ml_utils import find_available_table
-    
-    # Check if ML model is loaded before testing
-    if not get_model_status():
-        return jsonify({'error': 'Model not loaded'})
-    
-    # Test availability check with sample data
-    result = find_available_table(4, 5, 19)  # 4 guests, Saturday, 7PM
-    
-    return jsonify({
-        'model_loaded': get_model_status(),
-        'test_result': result,
-        'restaurant': RESTAURANT_INFO['name']
-    })
-
-
-@app.route('/ping')
-def ping():
-    """Keep-alive endpoint to prevent cold starts in cloud deployment"""
-    return jsonify({
-        'status': 'alive',
-        'timestamp': datetime.now().isoformat(),
-        'model_loaded': get_model_status(),
-        'uptime': 'running'
-    })
-
-
-# Debug endpoint for ML model troubleshooting - BEFORE if __name__ == '__main__':
+# Debug endpoint for ML model troubleshooting
 @app.route('/debug-ml')
 def debug_ml():
     """Endpoint for debugging ML model functionality"""
