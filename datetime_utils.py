@@ -1,5 +1,5 @@
 """
-Utility functions per gestione date e orari - FIXED WITH RESTAURANT HOURS VALIDATION
+Utility functions per gestione date e orari
 """
 from datetime import datetime
 
