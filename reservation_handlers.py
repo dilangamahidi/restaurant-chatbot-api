@@ -1,5 +1,5 @@
 """
-Handlers for restaurant reservation management - VERSION WITH TIME VALIDATION
+Handlers for restaurant reservation management
 """
 from flask import jsonify
 import re
