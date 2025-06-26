@@ -1,5 +1,5 @@
 """
-ML Utilities and table availability management - CORRECTED VERSION WITH FALLBACK
+ML Utilities and table availability management
 """
 import joblib
 import numpy as np
