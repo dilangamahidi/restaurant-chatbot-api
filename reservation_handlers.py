@@ -313,68 +313,6 @@ def handle_make_reservation(parameters, language_code='en'):
             print(f"🔧 DEBUG - Returning: {response}")
             return jsonify({'fulfillmentText': response})
         
-        # Check for missing parameters
-        if not date or not time:
-            try:
-                from translations import get_text
-                response = get_text('datetime_needed_table', language_code, table=table_num)
-            except:
-                response = f"I need the date and time to check table {table_num} availability."
-            print(f"🔧 DEBUG - Returning: {response}")
-            return jsonify({'fulfillmentText': response})
-        
-        # TIME VALIDATION IN TABLE SEARCH
-        try:
-            day_of_week, hour_of_day, error_message = parse_dialogflow_datetime(date, time)
-            
-            # If there's a time validation error, return the error message
-            if error_message:
-                print(f"❌ Hour validation failed: {error_message}")
-                return jsonify({'fulfillmentText': error_message})
-            
-            # Check table availability using ML model
-            is_available = check_table_availability(table_num, 4, day_of_week, hour_of_day)  # Default 4 guests
-            
-            # Format date and time for user-friendly response
-            formatted_date = format_date_readable(date)
-            formatted_time = format_time_readable(time)
-            
-            if is_available:
-                try:
-                    from translations import get_text
-                    response = get_text('table_available', language_code, table=table_num, date=formatted_date, time=formatted_time)
-                except:
-                    response = f"✅ Good news! Table {table_num} is available on {formatted_date} at {formatted_time}!"
-            else:
-                try:
-                    from translations import get_text
-                    response = get_text('table_unavailable', language_code, table=table_num, date=formatted_date, time=formatted_time)
-                except:
-                    response = f"😔 Sorry, table {table_num} is already reserved on {formatted_date} at {formatted_time}."
-                
-            print(f"🔧 DEBUG - Returning: {response}")
-            return jsonify({'fulfillmentText': response})
-            
-        except Exception as e:
-            print(f"❌ Error checking availability: {e}")
-            try:
-                from translations import get_text
-                response = get_text('availability_error', language_code)
-            except:
-                response = 'Sorry, error checking table availability. Please call us.'
-            print(f"🔧 DEBUG - Returning ERROR: {response}")
-            return jsonify({'fulfillmentText': response})
-            
-    except Exception as e:
-        print(f"❌ Error in check_table_specific: {e}")
-        try:
-            from translations import get_text
-            response = get_text('general_error', language_code, phone=RESTAURANT_INFO['phone'])
-        except:
-            response = 'Sorry, error checking table availability. Please call us.'
-        print(f"🔧 DEBUG - Returning ERROR: {response}")
-        return jsonify({'fulfillmentText': response})Text': response})
-        
         if not phone:
             response = get_text('phone_needed', language_code)
             print(f"🔧 DEBUG - Returning: {response}")
