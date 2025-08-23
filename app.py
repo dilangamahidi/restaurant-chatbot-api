@@ -392,10 +392,18 @@ def test_sinhala():
         detected = detect_language_fallback(phrase)
         results[phrase] = detected
     
-    return jsonify({
+    response_data = {
         'test_results': results,
         'expected': 'si'
-    })
+    }
+    
+    # Usa la stessa logica UTF-8 dell'altro endpoint
+    json_string = json.dumps(response_data, ensure_ascii=False, indent=2)
+    
+    return Response(
+        json_string,
+        content_type='application/json; charset=utf-8'
+    )
 
 
 @app.route('/test-sinhala-direct')
