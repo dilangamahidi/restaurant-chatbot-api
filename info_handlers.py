@@ -1,4 +1,4 @@
-"""
+""""""
 Handlers for restaurant information management
 """
 import json
@@ -9,12 +9,18 @@ from config import RESTAURANT_INFO, MENU
 
 def create_utf8_response(data):
     """Create UTF-8 JSON response"""
-    json_string = json.dumps(data, ensure_ascii=False, separators=(',', ':'))
-    return Response(
-        json_string,
-        content_type='application/json; charset=utf-8',
-        status=200
-    )
+    try:
+        json_string = json.dumps(data, ensure_ascii=False, separators=(',', ':'))
+        return Response(
+            json_string,
+            content_type='application/json; charset=utf-8',
+            status=200
+        )
+    except Exception as e:
+        print(f"❌ Error creating UTF-8 response: {e}")
+        # Fallback
+        fallback = json.dumps({'fulfillmentText': 'Sorry, there was an error.'}, ensure_ascii=False)
+        return Response(fallback, content_type='application/json; charset=utf-8')
     
 def handle_show_menu(parameters, language_code='en'):
     """Handle menu display - MULTIPLE MESSAGES with multilingual support"""
