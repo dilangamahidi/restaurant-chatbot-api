@@ -354,6 +354,8 @@ def handle_modify_reservation_time(parameters):
 
 def handle_make_reservation(parameters):
     """Handle complete reservation creation - WITH TIME VALIDATION"""
+    # Rileva la lingua dall'intent
+    lang = request.json.get('queryResult', {}).get('languageCode', 'en')
     try:
         print(f"🔧 DEBUG - Make reservation parameters: {parameters}")
         
@@ -469,9 +471,16 @@ def handle_make_reservation(parameters):
         
         # IMMEDIATE RESPONSE (always simplified)
         if sheets_saved:
-            response = f"🎉 Reservation confirmed for {name}! {guest_count} guests on {formatted_date} at {formatted_time}, Table {table_num}. Confirmation email will be sent shortly!"
-        else:
-            response = f"✅ Reservation received for {name}! {guest_count} guests on {formatted_date} at {formatted_time}. Our staff will contact you to confirm details."
+        response = get_text('reservation_confirmed', lang, 
+                          name=name, guests=guest_count, 
+                          date=formatted_date, time=formatted_time, 
+                          table=table_num)
+    else:
+        response = get_text('no_availability', lang,
+                          guests=guest_count, date=formatted_date, 
+                          time=formatted_time)
+    
+    return jsonify({'fulfillmentText': response})
         
         print(f"🔧 DEBUG - Returning SUCCESS: {response}")
         
