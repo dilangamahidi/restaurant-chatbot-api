@@ -38,6 +38,22 @@ CORS(app)  # Enable CORS for all routes to allow frontend integration
 
 # Ensure UTF-8 encoding for multilingual support
 app.config['JSON_AS_ASCII'] = False
+app.config['JSON_SORT_KEYS'] = False
+
+# Imposta gli headers UTF-8 per tutte le risposte
+@app.after_request
+def after_request(response):
+    response.headers['Content-Type'] = 'application/json; charset=utf-8'
+    return response
+
+# Personalizza il JSON encoder per forzare UTF-8
+class UnicodeJSONEncoder(json.JSONEncoder):
+    def encode(self, obj):
+        if isinstance(obj, dict):
+            return json.dumps(obj, ensure_ascii=False, separators=(',', ':'))
+        return super().encode(obj)
+
+app.json_encoder = UnicodeJSONEncoder
 
 
 def detect_language_fallback(text):
