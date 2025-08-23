@@ -331,6 +331,48 @@ def test_translation():
             'message': 'Please create translations.py module'
         })
 
+# Aggiungi questo al file app.py
+
+@app.route('/test-language', methods=['POST'])
+def test_language():
+    """Test endpoint for language detection"""
+    try:
+        data = request.get_json()
+        text = data.get('text', '')
+        
+        detected = detect_language_fallback(text)
+        
+        from translations import get_text
+        welcome_msg = get_text('welcome', detected, restaurant=RESTAURANT_INFO['name'], description=RESTAURANT_INFO['description'])
+        
+        return jsonify({
+            'input_text': text,
+            'detected_language': detected,
+            'welcome_message': welcome_msg,
+            'available_languages': ['en', 'si', 'ta']
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
+@app.route('/test-sinhala')
+def test_sinhala():
+    """Quick test for Sinhala"""
+    test_phrases = [
+        "මේසයක් වෙන්කර ගන්න",
+        "මෙනුව පෙන්වන්න", 
+        "විවෘත වේලාවන් මොනවද"
+    ]
+    
+    results = {}
+    for phrase in test_phrases:
+        detected = detect_language_fallback(phrase)
+        results[phrase] = detected
+    
+    return jsonify({
+        'test_results': results,
+        'expected': 'si'
+    })
+
 
 # Application entry point for production deployment
 if __name__ == '__main__':
