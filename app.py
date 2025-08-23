@@ -49,6 +49,17 @@ def home():
 
 @app.route('/dialogflow-webhook', methods=['POST'])
 def dialogflow_webhook():
+    try:
+        req = request.get_json()
+        query_result = req.get('queryResult', {})
+        
+        # Rileva lingua
+        language_code = query_result.get('languageCode', 'en')
+        
+        # Passa lingua a tutti gli handler
+        return handle_intent(query_result, language_code)
+    except Exception as e:
+        return handle_error(e, language_code)
     """Main webhook endpoint for Dialogflow with improved error handling"""
     try:
         # Extract JSON request from Dialogflow
