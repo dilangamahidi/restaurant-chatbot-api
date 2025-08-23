@@ -62,32 +62,35 @@ def safe_operation(operation_name, operation_func, *args, **kwargs):
         return None, False
 
 def create_safe_response(response_text, func_name):
-    """Create a safe JSON response with extensive logging"""
+    """Create a safe JSON response with UTF-8 encoding"""
     print(f"🔨 BUILDING RESPONSE for {func_name}")
     print(f"📝 Response text: '{response_text}'")
-    print(f"📏 Response length: {len(response_text)} characters")
     
     try:
-        # Ensure response is a string
+        # Assicurati che la risposta sia UTF-8
         if not isinstance(response_text, str):
             response_text = str(response_text)
         
-        # Limit length for safety
-        if len(response_text) > 1000:
-            response_text = response_text[:997] + "..."
-            print(f"⚠️ Response truncated to 1000 chars")
-        
         response_json = {'fulfillmentText': response_text}
-        print(f"✅ JSON Response created successfully")
-        print(f"🔍 JSON Structure: {response_json}")
         
-        return jsonify(response_json)
+        # 🚨 USA json.dumps invece di jsonify per controllare l'encoding
+        from flask import Response
+        import json
+        
+        json_string = json.dumps(response_json, ensure_ascii=False, indent=None, separators=(',', ':'))
+        
+        return Response(
+            json_string,
+            content_type='application/json; charset=utf-8',
+            status=200
+        )
+        
     except Exception as e:
         print(f"❌ CRITICAL: Failed to build JSON response!")
         print(f"💥 Error: {str(e)}")
         fallback_response = {'fulfillmentText': 'Sorry, there was a technical issue. Please call us.'}
         return jsonify(fallback_response)
-
+        
 def handle_modify_reservation_date(parameters, language_code='en'):
     """Handle reservation date modification - WITH TIME VALIDATION"""
     log_function_entry("handle_modify_reservation_date", parameters)
