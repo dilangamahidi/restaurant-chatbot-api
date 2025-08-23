@@ -389,6 +389,32 @@ def test_sinhala():
         'expected': 'si'
     })
 
+@app.route('/test-sinhala-direct')
+def test_sinhala_direct():
+    """Test diretto per caratteri singalesi"""
+    from translations import get_text
+    
+    sinhala_text = get_text('welcome', 'si', 
+                           restaurant=RESTAURANT_INFO['name'], 
+                           description=RESTAURANT_INFO['description'])
+    
+    import json
+    from flask import Response
+    
+    response_data = {
+        'fulfillmentText': sinhala_text,
+        'test_status': 'success',
+        'language': 'si'
+    }
+    
+    # Forza UTF-8 encoding
+    json_string = json.dumps(response_data, ensure_ascii=False, indent=2)
+    
+    return Response(
+        json_string,
+        content_type='application/json; charset=utf-8'
+    )
+
 
 # Application entry point for production deployment
 if __name__ == '__main__':
