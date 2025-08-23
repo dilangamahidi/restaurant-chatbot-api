@@ -29,7 +29,7 @@ def handle_show_menu(parameters, language_code='en'):
             items = MENU[menu_category]
             # Format single category response with numbered items
             response_text = f"🍽️ {menu_category.title()} Menu:\n\n" + "\n".join([f"{i}. {item}" for i, item in enumerate(items, 1)])
-            return jsonify({'fulfillmentText': response_text})
+            return create_utf8_response({'fulfillmentText': response_text})
         else:
             # Show complete menu using multiple messages for better readability
             rich_response = {
@@ -69,11 +69,11 @@ def handle_show_menu(parameters, language_code='en'):
                     },
                 ]
             }
-            return jsonify(rich_response)
+            return create_utf8_response(rich_response)
     except:
         # Fallback to English
         response_text = f"🍽️ {RESTAURANT_INFO['name']} Menu:"
-        return jsonify({'fulfillmentText': response_text})
+        return create_utf8_response({'fulfillmentText': response_text})
 
 
 def handle_opening_hours(language_code='en'):
@@ -107,11 +107,11 @@ def handle_opening_hours(language_code='en'):
                 },
             ]
         }
-        return jsonify(rich_response)
+        return create_utf8_response(rich_response)
     except:
         # Fallback to English
         response_text = f"🕐 {RESTAURANT_INFO['name']} Opening Hours:\nMonday - Saturday: 09:00 AM - 09:00 PM\nSunday: 10:00 AM - 08:00 PM"
-        return jsonify({'fulfillmentText': response_text})
+        return create_utf8_response({'fulfillmentText': response_text})
 
 
 def handle_restaurant_info(language_code='en'):
@@ -163,11 +163,11 @@ def handle_restaurant_info(language_code='en'):
                 }
             ]
         }
-        return jsonify(rich_response)
+        return create_utf8_response(rich_response)
     except:
         # Fallback to English
         response_text = f"🍽️ {RESTAURANT_INFO['name']}\n{RESTAURANT_INFO['description']}\n📍 Address: {RESTAURANT_INFO['address']}"
-        return jsonify({'fulfillmentText': response_text})
+        return create_utf8_response({'fulfillmentText': response_text})
 
 
 def handle_contact_human(language_code='en'):
@@ -201,11 +201,11 @@ def handle_contact_human(language_code='en'):
                 },
             ]
         }
-        return jsonify(rich_response)
+        return create_utf8_response(rich_response)
     except:
         # Fallback to English
         response_text = f"👨‍💼 Contact our staff:\n📞 Phone: {RESTAURANT_INFO['phone']}\n📧 Email: {RESTAURANT_INFO['email']}"
-        return jsonify({'fulfillmentText': response_text})
+        return create_utf8_response({'fulfillmentText': response_text})
 
 
 def handle_restaurant_location(language_code='en'):
@@ -233,8 +233,8 @@ def handle_restaurant_location(language_code='en'):
                 },
             ]
         }
-        return jsonify(rich_response)
+        return create_utf8_response(rich_response)
     except:
         # Fallback to English
         response_text = f"📍 {RESTAURANT_INFO['name']} Location:\n🏠 Address: {RESTAURANT_INFO['address']}"
-        return jsonify({'fulfillmentText': response_text})
+        return create_utf8_response({'fulfillmentText': response_text})
