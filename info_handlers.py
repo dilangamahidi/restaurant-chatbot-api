@@ -1,4 +1,4 @@
-""""""
+"""
 Handlers for restaurant information management
 """
 import json
