@@ -41,19 +41,54 @@ app.config['JSON_AS_ASCII'] = False
 
 
 def detect_language_fallback(text):
-    """Detect language if Dialogflow doesn't provide it"""
-    # Sinhala characters
+    """Detect language if Dialogflow doesn't provide it - IMPROVED VERSION"""
+    if not text:
+        return 'en'
+    
+    text = str(text).lower()
+    
+    # Sinhala characters - expanded set
     sinhala_chars = set('අආඇඈඉඊඋඌඍඎඏඐඑඒඓඔඕඖකඛගඝඞචඡජඣඤටඨඩඪණතථදධනපඵබභමයරලවශෂසහළ')
-    # Tamil characters  
+    
+    # Tamil characters - expanded set  
     tamil_chars = set('அஆஇஈஉஊஎஏஐஒஓஔகஙசஞடணதநபமயரலவழளறனஷஸஹ')
     
-    if any(char in sinhala_chars for char in text):
+    # Sinhala common words
+    sinhala_words = {
+        'මේසයක්', 'වෙන්කර', 'ගන්න', 'මෙනුව', 'පෙන්වන්න', 'කෑම', 'තියෙන්නේ',
+        'විවෘත', 'වේලාවන්', 'මොනවද', 'කවදද', 'ඉස්සන්', 'restaurant', 'එක',
+        'දෙනෙකුට', 'හෙට', 'රාත්‍රී', 'උදේ', 'දිවා', 'අද', 'සඳුදා', 'අඟහරුවාදා'
+    }
+    
+    # Tamil common words  
+    tamil_words = {
+        'மேஜை', 'முன்பதிவு', 'மெனு', 'காட்டுங்கள்', 'உணவு', 'இருக்கிறது',
+        'நேரம்', 'திறந்திருக்கும்', 'எப்போது', 'இன்று', 'நாளை', 'இரவு', 'காலை'
+    }
+    
+    # Count Sinhala characters
+    sinhala_char_count = sum(1 for char in text if char in sinhala_chars)
+    
+    # Count Tamil characters
+    tamil_char_count = sum(1 for char in text if char in tamil_chars)
+    
+    # Check for Sinhala words
+    sinhala_word_count = sum(1 for word in sinhala_words if word in text)
+    
+    # Check for Tamil words
+    tamil_word_count = sum(1 for word in tamil_words if word in text)
+    
+    print(f"🔧 Language detection: text='{text}'")
+    print(f"🔧 Sinhala chars: {sinhala_char_count}, words: {sinhala_word_count}")
+    print(f"🔧 Tamil chars: {tamil_char_count}, words: {tamil_word_count}")
+    
+    # Determine language based on character and word counts
+    if sinhala_char_count > 0 or sinhala_word_count > 0:
         return 'si'
-    elif any(char in tamil_chars for char in text):
+    elif tamil_char_count > 0 or tamil_word_count > 0:
         return 'ta'
     else:
         return 'en'
-
 
 def handle_intent(query_result, language_code):
     """Handle intent with language support"""
@@ -180,10 +215,12 @@ def home():
 
 @app.route('/dialogflow-webhook', methods=['POST'])
 def dialogflow_webhook():
-    """Main webhook endpoint for Dialogflow with multilingual support"""
+    """Main webhook endpoint for Dialogflow with improved multilingual support"""
     try:
         # Extract JSON request from Dialogflow
         req = request.get_json()
+        
+        print(f"🔧 DEBUG - Full request: {req}")
         
         # Validate that request data exists
         if not req:
@@ -191,21 +228,30 @@ def dialogflow_webhook():
         
         # Parse Dialogflow request structure
         query_result = req.get('queryResult', {})
+        query_text = query_result.get('queryText', '')
+        
+        print(f"🔧 DEBUG - Query text: '{query_text}'")
         
         # Detect language
         language_code = query_result.get('languageCode', 'en')
+        print(f"🔧 DEBUG - Dialogflow language: '{language_code}'")
         
-        # Fallback language detection if not provided by Dialogflow
-        if language_code == 'en':
-            query_text = query_result.get('queryText', '')
-            detected_lang = detect_language_fallback(query_text)
-            if detected_lang != 'en':
-                language_code = detected_lang
+        # ALWAYS check for language in query text regardless of Dialogflow language
+        detected_lang = detect_language_fallback(query_text)
+        print(f"🔧 DEBUG - Detected language: '{detected_lang}'")
+        
+        # Use detected language if it's not English or if Dialogflow didn't detect properly
+        if detected_lang != 'en':
+            language_code = detected_lang
+            print(f"🔧 DEBUG - Using detected language: '{language_code}'")
         
         # Handle the intent with language support
         return handle_intent(query_result, language_code)
         
     except Exception as e:
+        print(f"❌ WEBHOOK ERROR: {e}")
+        print(f"❌ TRACEBACK: {traceback.format_exc()}")
+        
         # Get language for error handling
         try:
             language_code = request.get_json().get('queryResult', {}).get('languageCode', 'en')
