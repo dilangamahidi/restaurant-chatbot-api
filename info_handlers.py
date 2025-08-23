@@ -1,12 +1,21 @@
 """
 Handlers for restaurant information management
 """
-from flask import jsonify
+import json
+from flask import Response
 
 # Import from our modules
 from config import RESTAURANT_INFO, MENU
 
-
+def create_utf8_response(data):
+    """Create UTF-8 JSON response"""
+    json_string = json.dumps(data, ensure_ascii=False, separators=(',', ':'))
+    return Response(
+        json_string,
+        content_type='application/json; charset=utf-8',
+        status=200
+    )
+    
 def handle_show_menu(parameters, language_code='en'):
     """Handle menu display - MULTIPLE MESSAGES with multilingual support"""
     try:
