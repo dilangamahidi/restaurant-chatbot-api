@@ -62,26 +62,20 @@ def safe_operation(operation_name, operation_func, *args, **kwargs):
         return None, False
 
 def create_safe_response(response_text, func_name):
-    """Create a safe JSON response with UTF-8 encoding - FIXED VERSION"""
+    """Create a safe JSON response with UTF-8 encoding - FINAL VERSION"""
     print(f"🔨 BUILDING RESPONSE for {func_name}")
     print(f"📝 Response text: '{response_text}'")
-    print(f"📏 Response length: {len(response_text)} characters")
     
     try:
-        # Ensure response is a string
         if not isinstance(response_text, str):
             response_text = str(response_text)
         
-        # Limit length for safety
         if len(response_text) > 1000:
             response_text = response_text[:997] + "..."
-            print(f"⚠️ Response truncated to 1000 chars")
         
         response_json = {'fulfillmentText': response_text}
-        print(f"✅ JSON Response created successfully")
-        print(f"🔍 JSON Structure: {response_json}")
         
-        # 🚨 FIXED: Use the same UTF-8 logic as in app.py
+        # 🚨 SOLUZIONE FINALE: Usa Response con UTF-8 come negli endpoint
         from flask import Response
         import json
         
@@ -94,15 +88,14 @@ def create_safe_response(response_text, func_name):
         )
         
     except Exception as e:
-        print(f"❌ CRITICAL: Failed to build JSON response!")
-        print(f"💥 Error: {str(e)}")
-        
-        # Even fallback should use UTF-8
-        fallback_response = {'fulfillmentText': 'Sorry, there was a technical issue. Please call us.'}
-        fallback_json = json.dumps(fallback_response, ensure_ascii=False)
+        print(f"❌ Error building response: {e}")
+        # Fallback anche con UTF-8
+        fallback = json.dumps({
+            'fulfillmentText': 'Sorry, there was a technical issue. Please call us.'
+        }, ensure_ascii=False)
         
         return Response(
-            fallback_json,
+            fallback,
             content_type='application/json; charset=utf-8',
             status=200
         )
