@@ -1,9 +1,10 @@
 """
 Main Flask application for restaurant - Modularized with multilingual support
 """
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 import os
+import json  # 🚨 AGGIUNTO: Import mancante
 import traceback
 from datetime import datetime
 from dotenv import load_dotenv
@@ -46,13 +47,14 @@ def after_request(response):
     response.headers['Content-Type'] = 'application/json; charset=utf-8'
     return response
 
-# Personalizza il JSON encoder per forzare UTF-8
+# 🚨 CORRETTO: Personalizza il JSON encoder per forzare UTF-8
 class UnicodeJSONEncoder(json.JSONEncoder):
     def encode(self, obj):
         if isinstance(obj, dict):
             return json.dumps(obj, ensure_ascii=False, separators=(',', ':'))
         return super().encode(obj)
 
+# 🚨 CORRETTO: Usa l'attributo corretto per Flask
 app.json_encoder = UnicodeJSONEncoder
 
 
@@ -118,39 +120,37 @@ def handle_intent(query_result, language_code):
     print(f"🔧 Parameters: {parameters}")
     
     # Pass language to handlers that support it
-    if hasattr(globals().get(f'handle_{intent_name.replace(".", "_")}', lambda x: None), '__code__'):
-        # Check if handler accepts language parameter
-        try:
-            # Try to pass language to handlers
-            if intent_name == 'make.reservation':
-                return handle_make_reservation(parameters, language_code)
-            elif intent_name == 'check.table.specific':
-                return handle_check_table_specific(parameters, language_code)
-            elif intent_name == 'modify.reservation':
-                return handle_modify_reservation(parameters, language_code)
-            elif intent_name == 'cancel.reservation':
-                return handle_cancel_reservation(parameters, language_code)
-            elif intent_name == 'check.my.reservation':
-                return handle_check_my_reservation(parameters, language_code)
-            elif intent_name == 'show.menu':
-                return handle_show_menu(parameters, language_code)
-            elif intent_name == 'opening.hours':
-                return handle_opening_hours(language_code)
-            elif intent_name in ['restaurant.info']:
-                return handle_restaurant_info(language_code)
-            elif intent_name == 'contact.human':
-                return handle_contact_human(language_code)
-            elif intent_name == 'restaurant.location':
-                return handle_restaurant_location(language_code)
-            elif intent_name == 'modify.reservation.date':
-                return handle_modify_reservation_date(parameters, language_code)
-            elif intent_name == 'modify.reservation.time':
-                return handle_modify_reservation_time(parameters, language_code)
-            elif intent_name == 'modify.reservation.guests':
-                return handle_modify_reservation_guests(parameters, language_code)
-        except TypeError:
-            # Fallback to original handlers without language parameter
-            pass
+    try:
+        # Try to pass language to handlers
+        if intent_name == 'make.reservation':
+            return handle_make_reservation(parameters, language_code)
+        elif intent_name == 'check.table.specific':
+            return handle_check_table_specific(parameters, language_code)
+        elif intent_name == 'modify.reservation':
+            return handle_modify_reservation(parameters, language_code)
+        elif intent_name == 'cancel.reservation':
+            return handle_cancel_reservation(parameters, language_code)
+        elif intent_name == 'check.my.reservation':
+            return handle_check_my_reservation(parameters, language_code)
+        elif intent_name == 'show.menu':
+            return handle_show_menu(parameters, language_code)
+        elif intent_name == 'opening.hours':
+            return handle_opening_hours(language_code)
+        elif intent_name in ['restaurant.info']:
+            return handle_restaurant_info(language_code)
+        elif intent_name == 'contact.human':
+            return handle_contact_human(language_code)
+        elif intent_name == 'restaurant.location':
+            return handle_restaurant_location(language_code)
+        elif intent_name == 'modify.reservation.date':
+            return handle_modify_reservation_date(parameters, language_code)
+        elif intent_name == 'modify.reservation.time':
+            return handle_modify_reservation_time(parameters, language_code)
+        elif intent_name == 'modify.reservation.guests':
+            return handle_modify_reservation_guests(parameters, language_code)
+    except TypeError:
+        # Fallback to original handlers without language parameter
+        pass
     
     # Fallback to original intent routing (without language support)
     return handle_intent_fallback(intent_name, parameters, language_code)
@@ -246,7 +246,10 @@ def dialogflow_webhook():
         query_result = req.get('queryResult', {})
         query_text = query_result.get('queryText', '')
         
+        # 🚨 DEBUG ENCODING AGGIUNTO
         print(f"🔧 DEBUG - Query text: '{query_text}'")
+        print(f"🔧 RAW query_text: {repr(query_text)}")
+        print(f"🔧 query_text UTF-8: {query_text.encode('utf-8')}")
         
         # Detect language
         language_code = query_result.get('languageCode', 'en')
@@ -262,7 +265,12 @@ def dialogflow_webhook():
             print(f"🔧 DEBUG - Using detected language: '{language_code}'")
         
         # Handle the intent with language support
-        return handle_intent(query_result, language_code)
+        response = handle_intent(query_result, language_code)
+        
+        # 🚨 DEBUG RESPONSE AGGIUNTO
+        print(f"🔧 RAW response: {repr(response.get_data())}")
+        
+        return response
         
     except Exception as e:
         print(f"❌ WEBHOOK ERROR: {e}")
@@ -347,7 +355,6 @@ def test_translation():
             'message': 'Please create translations.py module'
         })
 
-# Aggiungi questo al file app.py
 
 @app.route('/test-language', methods=['POST'])
 def test_language():
@@ -370,6 +377,7 @@ def test_language():
     except Exception as e:
         return jsonify({'error': str(e)})
 
+
 @app.route('/test-sinhala')
 def test_sinhala():
     """Quick test for Sinhala"""
@@ -389,6 +397,7 @@ def test_sinhala():
         'expected': 'si'
     })
 
+
 @app.route('/test-sinhala-direct')
 def test_sinhala_direct():
     """Test diretto per caratteri singalesi"""
@@ -397,9 +406,6 @@ def test_sinhala_direct():
     sinhala_text = get_text('welcome', 'si', 
                            restaurant=RESTAURANT_INFO['name'], 
                            description=RESTAURANT_INFO['description'])
-    
-    import json
-    from flask import Response
     
     response_data = {
         'fulfillmentText': sinhala_text,
