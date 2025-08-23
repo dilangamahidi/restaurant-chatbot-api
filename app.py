@@ -429,24 +429,34 @@ def test_sinhala_direct():
         content_type='application/json; charset=utf-8'
     )
 
-@app.route('/debug-webhook', methods=['POST'])
+@app.route('/debug-webhook', methods=['POST', 'GET'])
 def debug_webhook():
-    """Debug endpoint to see raw Dialogflow requests"""
-    req = request.get_json()
+    """Debug endpoint to see what's happening"""
+    if request.method == 'GET':
+        return jsonify({'message': 'Debug endpoint active', 'methods': ['POST', 'GET']})
     
-    print("🔧 === FULL DIALOGFLOW REQUEST ===")
-    print(json.dumps(req, indent=2, ensure_ascii=False))
-    
-    query_result = req.get('queryResult', {})
-    intent_name = query_result.get('intent', {}).get('displayName', 'UNKNOWN')
-    query_text = query_result.get('queryText', '')
-    language_code = query_result.get('languageCode', 'unknown')
-    
-    response = {
-        'fulfillmentText': f"DEBUG: Intent='{intent_name}', Query='{query_text}', Lang='{language_code}'"
-    }
-    
-    return jsonify(response)
+    try:
+        req = request.get_json()
+        
+        print("🔧 === FULL REQUEST ===")
+        print(json.dumps(req, indent=2, ensure_ascii=False))
+        
+        query_result = req.get('queryResult', {})
+        query_text = query_result.get('queryText', '')
+        intent_name = query_result.get('intent', {}).get('displayName', 'UNKNOWN')
+        language_code = query_result.get('languageCode', 'unknown')
+        
+        # Forza il rilevamento della lingua
+        detected_lang = detect_language_fallback(query_text)
+        
+        response = {
+            'fulfillmentText': f"🔧 DEBUG - Query: '{query_text}' | Intent: '{intent_name}' | DialogflowLang: '{language_code}' | DetectedLang: '{detected_lang}'"
+        }
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        return jsonify({'fulfillmentText': f'Debug error: {str(e)}'})
 
 
 # Application entry point for production deployment
