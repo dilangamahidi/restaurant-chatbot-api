@@ -177,3 +177,17 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     # Run application with production-ready settings
     app.run(host='0.0.0.0', port=port, debug=False)
+
+def detect_language_fallback(text):
+    """Rileva lingua se Dialogflow non la fornisce"""
+    # Caratteri singalesi
+    sinhala_chars = set('අආඇඈඉඊඋඌඍඎඏඐඑඒඓඔඕඖ')
+    # Caratteri tamil  
+    tamil_chars = set('அஆஇஈஉஊஎஏஐஒஓஔ')
+    
+    if any(char in sinhala_chars for char in text):
+        return 'si'
+    elif any(char in tamil_chars for char in text):
+        return 'ta'
+    else:
+        return 'en'
