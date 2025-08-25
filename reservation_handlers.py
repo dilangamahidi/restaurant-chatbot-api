@@ -123,53 +123,33 @@ def handle_modify_reservation_date(parameters, language_code='en'):
         # 2. INPUT VALIDATION PHASE
         print("🔄 PHASE 2: Validating inputs...")
         if not phone or not phone_ok:
-            try:
-                from translations import get_text
-                response = get_text('phone_for_check', language_code)
-            except:
-                response = "Please provide your phone number to find your reservation."
+            response = "Please provide your phone number to find your reservation."
             log_function_exit("handle_modify_reservation_date", response, False)
-            return create_safe_response(response, "handle_modify_reservation_date")
+            return jsonify({'fulfillmentText': response})
         
         if not new_date or not date_ok:
-            try:
-                from translations import get_text
-                response = get_text('datetime_needed', language_code)
-            except:
-                response = "Please specify the new date for your reservation."
+            response = "Please specify the new date for your reservation."
             log_function_exit("handle_modify_reservation_date", response, False)
-            return create_safe_response(response, "handle_modify_reservation_date")
+            return jsonify({'fulfillmentText': response})
         
         # 3. RESERVATION SEARCH PHASE
         print("🔄 PHASE 3: Searching for reservations...")
         user_reservations, search_ok = safe_operation("get_user_reservations", get_user_reservations, phone, language_code)
         
         if not search_ok:
-            try:
-                from translations import get_text
-                response = get_text('sheets_error', language_code)
-            except:
-                response = "Sorry, I'm having trouble accessing your reservations. Please call us."
+            response = "Sorry, I'm having trouble accessing your reservations. Please call us."
             log_function_exit("handle_modify_reservation_date", response, False)
-            return create_safe_response(response, "handle_modify_reservation_date")
+            return jsonify({'fulfillmentText': response})
         
         if not user_reservations:
-            try:
-                from translations import get_text
-                response = get_text('reservation_not_found', language_code, phone=phone)
-            except:
-                response = f"I couldn't find any active reservations for phone number {phone}."
+            response = f"I couldn't find any active reservations for phone number {phone}."
             log_function_exit("handle_modify_reservation_date", response, False)
-            return create_safe_response(response, "handle_modify_reservation_date")
+            return jsonify({'fulfillmentText': response})
         
         if len(user_reservations) != 1:
-            try:
-                from translations import get_text
-                response = get_text('multiple_reservations', language_code, count=len(user_reservations), phone=RESTAURANT_INFO['phone'])
-            except:
-                response = f"You have multiple reservations. Please call us at {RESTAURANT_INFO['phone']} to specify which one to modify."
+            response = f"You have multiple reservations. Please call us at {RESTAURANT_INFO['phone']} to specify which one to modify."
             log_function_exit("handle_modify_reservation_date", response, False)
-            return create_safe_response(response, "handle_modify_reservation_date")
+            return jsonify({'fulfillmentText': response})
         
         # 4. RESERVATION PROCESSING PHASE
         print("🔄 PHASE 4: Processing reservation...")
@@ -198,7 +178,7 @@ def handle_modify_reservation_date(parameters, language_code='en'):
                 print(f"❌ PHASE 6 FAILED: Hour validation error")
                 response = error_message
                 log_function_exit("handle_modify_reservation_date", response, False)
-                return create_safe_response(response, "handle_modify_reservation_date")
+                return jsonify({'fulfillmentText': response})
             
             print(f"📊 Parsed: day_of_week={day_of_week}, hour_of_day={hour_of_day}")
             
@@ -208,13 +188,13 @@ def handle_modify_reservation_date(parameters, language_code='en'):
             if not avail_ok or not result or not result.get('available'):
                 response = f"Sorry, we don't have availability for {guests} guests on {formatted_new_date} at {old_time}. Please try a different date or time."
                 log_function_exit("handle_modify_reservation_date", response, False)
-                return create_safe_response(response, "handle_modify_reservation_date")
+                return jsonify({'fulfillmentText': response})
                 
         except Exception as e:
             print(f"❌ PHASE 6 FAILED: {str(e)}")
             response = "Sorry, I'm having trouble checking availability for the new date."
             log_function_exit("handle_modify_reservation_date", response, False)
-            return create_safe_response(response, "handle_modify_reservation_date")
+            return jsonify({'fulfillmentText': response})
         
         # 7. RESERVATION UPDATE PHASE
         print("🔄 PHASE 7: Updating reservation...")
@@ -240,28 +220,20 @@ def handle_modify_reservation_date(parameters, language_code='en'):
         print(f"📊 Update results: date_updated={date_updated}, table_updated={table_updated}")
         
         if (date_updated and date_update_ok) or (table_updated and table_update_ok):
-            try:
-                from translations import get_text
-                response = get_text('reservation_updated_date', language_code, date=formatted_new_date, table=new_table)
-            except:
-                response = f"✅ Date updated successfully to {formatted_new_date}! Your table is now {new_table}."
+            response = f"✅ Date updated successfully to {formatted_new_date}! Your table is now {new_table}."
             log_function_exit("handle_modify_reservation_date", response, True)
-            return create_safe_response(response, "handle_modify_reservation_date")
+            return jsonify({'fulfillmentText': response})
         else:
-            try:
-                from translations import get_text
-                response = get_text('update_error', language_code, phone=RESTAURANT_INFO['phone'])
-            except:
-                response = f"Update completed. Please call {RESTAURANT_INFO['phone']} to verify changes."
+            response = f"Update completed. Please call {RESTAURANT_INFO['phone']} to verify changes."
             log_function_exit("handle_modify_reservation_date", response, False)
-            return create_safe_response(response, "handle_modify_reservation_date")
+            return jsonify({'fulfillmentText': response})
             
     except Exception as e:
         print(f"❌ CRITICAL ERROR in handle_modify_reservation_date: {str(e)}")
         print(f"📚 Full traceback: {traceback.format_exc()}")
         response = f'Sorry, error modifying your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'
         log_function_exit("handle_modify_reservation_date", response, False)
-        return create_safe_response(response, "handle_modify_reservation_date")
+        return jsonify({'fulfillmentText': response})
 
 
 def handle_modify_reservation_time(parameters, language_code='en'):
@@ -285,12 +257,12 @@ def handle_modify_reservation_time(parameters, language_code='en'):
         if not phone or not phone_ok:
             response = "Please provide your phone number to find your reservation."
             log_function_exit("handle_modify_reservation_time", response, False)
-            return create_safe_response(response, "handle_modify_reservation_time")
+            return jsonify({'fulfillmentText': response})
         
         if not new_time or not time_ok:
             response = "Please specify the new time for your reservation."
             log_function_exit("handle_modify_reservation_time", response, False)
-            return create_safe_response(response, "handle_modify_reservation_time")
+            return jsonify({'fulfillmentText': response})
         
         # 3. RESERVATION SEARCH PHASE
         print("🔄 PHASE 3: Searching for reservations...")
@@ -299,17 +271,17 @@ def handle_modify_reservation_time(parameters, language_code='en'):
         if not search_ok:
             response = "Sorry, I'm having trouble accessing your reservations. Please call us."
             log_function_exit("handle_modify_reservation_time", response, False)
-            return create_safe_response(response, "handle_modify_reservation_time")
+            return jsonify({'fulfillmentText': response})
         
         if not user_reservations:
             response = f"I couldn't find any active reservations for phone number {phone}."
             log_function_exit("handle_modify_reservation_time", response, False)
-            return create_safe_response(response, "handle_modify_reservation_time")
+            return jsonify({'fulfillmentText': response})
         
         if len(user_reservations) != 1:
             response = f"You have multiple reservations. Please call us at {RESTAURANT_INFO['phone']} to specify which one to modify."
             log_function_exit("handle_modify_reservation_time", response, False)
-            return create_safe_response(response, "handle_modify_reservation_time")
+            return jsonify({'fulfillmentText': response})
         
         # 4. RESERVATION PROCESSING PHASE
         print("🔄 PHASE 4: Processing reservation...")
@@ -331,7 +303,7 @@ def handle_modify_reservation_time(parameters, language_code='en'):
                 print(f"❌ PHASE 5 FAILED: Hour validation error")
                 response = error_message
                 log_function_exit("handle_modify_reservation_time", response, False)
-                return create_safe_response(response, "handle_modify_reservation_time")
+                return jsonify({'fulfillmentText': response})
             
             print(f"📊 Parsed: day_of_week={day_of_week}, hour_of_day={hour_of_day}")
             
@@ -348,13 +320,13 @@ def handle_modify_reservation_time(parameters, language_code='en'):
             if not avail_ok or not result or not result.get('available'):
                 response = f"Sorry, we don't have availability for {guests} guests on {old_date} at {formatted_new_time}. Please try a different time."
                 log_function_exit("handle_modify_reservation_time", response, False)
-                return create_safe_response(response, "handle_modify_reservation_time")
+                return jsonify({'fulfillmentText': response})
                 
         except Exception as e:
             print(f"❌ PHASE 5 FAILED: {str(e)}")
             response = "Sorry, I'm having trouble checking availability for the new time."
             log_function_exit("handle_modify_reservation_time", response, False)
-            return create_safe_response(response, "handle_modify_reservation_time")
+            return jsonify({'fulfillmentText': response})
         
         # 6. RESERVATION UPDATE PHASE
         print("🔄 PHASE 6: Updating reservation...")
@@ -382,18 +354,18 @@ def handle_modify_reservation_time(parameters, language_code='en'):
         if (time_updated and time_update_ok) or (table_updated and table_update_ok):
             response = f"✅ Time updated successfully to {formatted_new_time}! Your table is now {new_table}."
             log_function_exit("handle_modify_reservation_time", response, True)
-            return create_safe_response(response, "handle_modify_reservation_time")
+            return jsonify({'fulfillmentText': response})
         else:
             response = f"Update completed. Please call {RESTAURANT_INFO['phone']} to verify changes."
             log_function_exit("handle_modify_reservation_time", response, False)
-            return create_safe_response(response, "handle_modify_reservation_time")
+            return jsonify({'fulfillmentText': response})
             
     except Exception as e:
         print(f"❌ CRITICAL ERROR in handle_modify_reservation_time: {str(e)}")
         print(f"📚 Full traceback: {traceback.format_exc()}")
         response = f'Sorry, error modifying your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'
         log_function_exit("handle_modify_reservation_time", response, False)
-        return create_safe_response(response, "handle_modify_reservation_time")
+        return jsonify({'fulfillmentText': response})
 
 
 def handle_make_reservation(parameters, language_code='en'):
@@ -600,12 +572,12 @@ def handle_modify_reservation_guests(parameters, language_code='en'):
         if not phone or not phone_ok:
             response = "Please provide your phone number to find your reservation."
             log_function_exit("handle_modify_reservation_guests", response, False)
-            return create_safe_response(response, "handle_modify_reservation_guests")
+            return jsonify({'fulfillmentText': response})
         
         if not new_guests or not guests_ok:
             response = "Please specify the new number of guests for your reservation."
             log_function_exit("handle_modify_reservation_guests", response, False)
-            return create_safe_response(response, "handle_modify_reservation_guests")
+            return jsonify({'fulfillmentText': response})
         
         # 3. GUEST COUNT CONVERSION PHASE
         print("🔄 PHASE 3: Converting guest count...")
@@ -632,13 +604,13 @@ def handle_modify_reservation_guests(parameters, language_code='en'):
             if guest_count < 1 or guest_count > 20:
                 response = "I can accommodate between 1 and 20 guests. Please specify a valid number."
                 log_function_exit("handle_modify_reservation_guests", response, False)
-                return create_safe_response(response, "handle_modify_reservation_guests")
+                return jsonify({'fulfillmentText': response})
                 
         except (ValueError, TypeError) as e:
             print(f"❌ PHASE 3 FAILED: {str(e)}")
             response = f"Please provide a valid number of guests (you entered: '{new_guests}')."
             log_function_exit("handle_modify_reservation_guests", response, False)
-            return create_safe_response(response, "handle_modify_reservation_guests")
+            return jsonify({'fulfillmentText': response})
         
         # 4. RESERVATION SEARCH PHASE
         print("🔄 PHASE 4: Searching for reservations...")
@@ -647,17 +619,17 @@ def handle_modify_reservation_guests(parameters, language_code='en'):
         if not search_ok:
             response = "Sorry, I'm having trouble accessing your reservations. Please call us."
             log_function_exit("handle_modify_reservation_guests", response, False)
-            return create_safe_response(response, "handle_modify_reservation_guests")
+            return jsonify({'fulfillmentText': response})
         
         if not user_reservations:
             response = f"I couldn't find any active reservations for phone number {phone}."
             log_function_exit("handle_modify_reservation_guests", response, False)
-            return create_safe_response(response, "handle_modify_reservation_guests")
+            return jsonify({'fulfillmentText': response})
         
         if len(user_reservations) != 1:
             response = f"You have multiple reservations. Please call us at {RESTAURANT_INFO['phone']} to specify which one to modify."
             log_function_exit("handle_modify_reservation_guests", response, False)
-            return create_safe_response(response, "handle_modify_reservation_guests")
+            return jsonify({'fulfillmentText': response})
         
         # 5. RESERVATION PROCESSING PHASE
         print("🔄 PHASE 5: Processing reservation...")
@@ -687,13 +659,13 @@ def handle_modify_reservation_guests(parameters, language_code='en'):
             if not avail_ok or not result or not result.get('available'):
                 response = f"Sorry, we don't have availability for {guest_count} guests on {old_date} at {old_time}. Please try a different time or date."
                 log_function_exit("handle_modify_reservation_guests", response, False)
-                return create_safe_response(response, "handle_modify_reservation_guests")
+                return jsonify({'fulfillmentText': response})
                 
         except Exception as e:
             print(f"❌ PHASE 6 FAILED: {str(e)}")
             response = f"Sorry, I'm having trouble checking availability for {guest_count} guests."
             log_function_exit("handle_modify_reservation_guests", response, False)
-            return create_safe_response(response, "handle_modify_reservation_guests")
+            return jsonify({'fulfillmentText': response})
         
         # 7. RESERVATION UPDATE PHASE
         print("🔄 PHASE 7: Updating reservation...")
@@ -721,18 +693,18 @@ def handle_modify_reservation_guests(parameters, language_code='en'):
         if (guests_updated and guests_update_ok) or (table_updated and table_update_ok):
             response = f"✅ Guest count updated successfully to {guest_count} guests (was {old_guests})! Your table is now {new_table}."
             log_function_exit("handle_modify_reservation_guests", response, True)
-            return create_safe_response(response, "handle_modify_reservation_guests")
+            return jsonify({'fulfillmentText': response})
         else:
             response = f"Update completed. Please call {RESTAURANT_INFO['phone']} to verify changes."
             log_function_exit("handle_modify_reservation_guests", response, False)
-            return create_safe_response(response, "handle_modify_reservation_guests")
+            return jsonify({'fulfillmentText': response})
             
     except Exception as e:
         print(f"❌ CRITICAL ERROR in handle_modify_reservation_guests: {str(e)}")
         print(f"📚 Full traceback: {traceback.format_exc()}")
         response = f'Sorry, error modifying your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'
         log_function_exit("handle_modify_reservation_guests", response, False)
-        return create_safe_response(response, "handle_modify_reservation_guests")
+        return jsonify({'fulfillmentText': response})
 
 
 def handle_modify_reservation(parameters, language_code='en'):
@@ -756,13 +728,9 @@ def handle_modify_reservation(parameters, language_code='en'):
             phone_ok = False
         
         if not phone or not phone_ok:
-            try:
-                from translations import get_text
-                response = get_text('phone_for_check', language_code)
-            except:
-                response = "Please provide your phone number to find your reservation."
+            response = "Please provide your phone number to find your reservation."
             log_function_exit("handle_modify_reservation", response, False)
-            return create_safe_response(response, "handle_modify_reservation")
+            return jsonify({'fulfillmentText': response})
         
         print("🔄 PHASE 2: Searching for reservations...")
         # Search for user reservations with improved error handling
@@ -776,66 +744,34 @@ def handle_modify_reservation(parameters, language_code='en'):
             search_ok = False
         
         if not search_ok:
-            try:
-                from translations import get_text
-                response = get_text('sheets_error', language_code)
-            except:
-                response = "Sorry, I'm having trouble accessing your reservations. Please call us."
+            response = "Sorry, I'm having trouble accessing your reservations. Please call us."
             log_function_exit("handle_modify_reservation", response, False)
-            return create_safe_response(response, "handle_modify_reservation")
+            return jsonify({'fulfillmentText': response})
         
         if not user_reservations:
-            try:
-                from translations import get_text
-                response = get_text('reservation_not_found', language_code, phone=phone)
-            except:
-                response = f"I couldn't find any active reservations for phone number {phone}. Please check the number or call us at {RESTAURANT_INFO['phone']}."
+            response = f"I couldn't find any active reservations for phone number {phone}. Please check the number or call us at {RESTAURANT_INFO['phone']}."
             log_function_exit("handle_modify_reservation", response, False)
-            return create_safe_response(response, "handle_modify_reservation")
+            return jsonify({'fulfillmentText': response})
         
         print("🔄 PHASE 3: Building response...")
         # Handle single reservation case
         if len(user_reservations) == 1:
             reservation = user_reservations[0]
-            try:
-                from translations import get_text
-                response = get_text('current_reservation', language_code,
-                                  name=reservation.get('Name', ''),
-                                  guests=reservation.get('Guests', ''),
-                                  date=reservation.get('Date', ''),
-                                  time=reservation.get('Time', ''),
-                                  table=reservation.get('Table', ''))
-            except:
-                response = f"📋 Your current reservation: {reservation.get('Name', '')} for {reservation.get('Guests', '')} guests on {reservation.get('Date', '')} at {reservation.get('Time', '')} (Table {reservation.get('Table', '')}). What would you like to modify? You can say: 'Change the date to tomorrow', 'Change the time to 8pm' or 'Change to 4 guests'."
-            
+            response = f"📋 Your current reservation: {reservation.get('Name', '')} for {reservation.get('Guests', '')} guests on {reservation.get('Date', '')} at {reservation.get('Time', '')} (Table {reservation.get('Table', '')}). What would you like to modify? You can say: 'Change the date to tomorrow', 'Change the time to 8pm' or 'Change to 4 guests'."
             log_function_exit("handle_modify_reservation", response, True)
-            return create_safe_response(response, "handle_modify_reservation")
+            return jsonify({'fulfillmentText': response})
         else:
             # Handle multiple reservations case
-            try:
-                from translations import get_text
-                response = get_text('multiple_reservations', language_code,
-                                  count=len(user_reservations),
-                                  phone=RESTAURANT_INFO['phone'])
-            except:
-                response = f"You have {len(user_reservations)} reservations. Please call us at {RESTAURANT_INFO['phone']} to specify which one to modify."
-            
+            response = f"You have {len(user_reservations)} reservations. Please call us at {RESTAURANT_INFO['phone']} to specify which one to modify."
             log_function_exit("handle_modify_reservation", response, False)
-            return create_safe_response(response, "handle_modify_reservation")
+            return jsonify({'fulfillmentText': response})
             
     except Exception as e:
         print(f"❌ CRITICAL ERROR in handle_modify_reservation: {str(e)}")
         print(f"📚 Full traceback: {traceback.format_exc()}")
-        
-        # More robust error response
-        try:
-            from translations import get_text
-            response = get_text('general_error', language_code, phone=RESTAURANT_INFO['phone'])
-        except:
-            response = f'Sorry, error finding your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'
-        
+        response = f'Sorry, error finding your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'
         log_function_exit("handle_modify_reservation", response, False)
-        return create_safe_response(response, "handle_modify_reservation")
+        return jsonify({'fulfillmentText': response})
 
 
 def handle_cancel_reservation(parameters, language_code='en'):
