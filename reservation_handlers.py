@@ -62,7 +62,7 @@ def safe_operation(operation_name, operation_func, *args, **kwargs):
         return None, False
 
 def create_safe_response(response_text, func_name):
-    """Create a safe JSON response with extensive logging"""
+    """Create a safe JSON response with extensive logging and improved error handling"""
     print(f"🔨 BUILDING RESPONSE for {func_name}")
     print(f"📝 Response text: '{response_text}'")
     print(f"📏 Response length: {len(response_text)} characters")
@@ -72,10 +72,18 @@ def create_safe_response(response_text, func_name):
         if not isinstance(response_text, str):
             response_text = str(response_text)
         
-        # Limit length for safety
+        # Remove null bytes that could cause JSON issues
+        response_text = response_text.replace('\x00', '')
+        
+        # Limit length for safety but ensure complete message
         if len(response_text) > 1000:
             response_text = response_text[:997] + "..."
             print(f"⚠️ Response truncated to 1000 chars")
+        
+        # Ensure response is not empty
+        if not response_text.strip():
+            response_text = "Sorry, I couldn't process your request. Please try again."
+            print(f"⚠️ Empty response, using fallback")
         
         response_json = {'fulfillmentText': response_text}
         print(f"✅ JSON Response created successfully")
@@ -85,8 +93,16 @@ def create_safe_response(response_text, func_name):
     except Exception as e:
         print(f"❌ CRITICAL: Failed to build JSON response!")
         print(f"💥 Error: {str(e)}")
-        fallback_response = {'fulfillmentText': 'Sorry, there was a technical issue. Please call us.'}
-        return jsonify(fallback_response)
+        print(f"📚 Traceback: {traceback.format_exc()}")
+        
+        # More robust fallback
+        try:
+            fallback_response = {'fulfillmentText': f'Sorry, there was a technical issue. Please call us at {RESTAURANT_INFO["phone"]}.'}
+            return jsonify(fallback_response)
+        except:
+            # Ultimate fallback - basic response without any dynamic content
+            basic_response = {'fulfillmentText': 'Sorry, technical issue. Please call the restaurant.'}
+            return jsonify(basic_response)
 
 def handle_modify_reservation_date(parameters, language_code='en'):
     """Handle reservation date modification - WITH TIME VALIDATION and multilingual support"""
@@ -724,44 +740,100 @@ def handle_modify_reservation(parameters, language_code='en'):
     log_function_entry("handle_modify_reservation", parameters)
     
     try:
-        # Extract phone number from parameters
+        print("🔄 PHASE 1: Extracting phone number...")
+        # Extract phone number from parameters with more robust extraction
         phone_raw = parameters.get('phone_number', parameters.get('phone', ''))
-        phone, phone_ok = safe_operation("extract_phone", extract_value, phone_raw)
+        print(f"🔧 Raw phone parameter: {phone_raw}")
+        
+        # Use safe operation but also handle the case where extract_value fails
+        phone = None
+        phone_ok = False
+        try:
+            phone, phone_ok = safe_operation("extract_phone", extract_value, phone_raw)
+            print(f"🔧 Extracted phone: '{phone}', success: {phone_ok}")
+        except Exception as e:
+            print(f"❌ Phone extraction failed: {e}")
+            phone_ok = False
         
         if not phone or not phone_ok:
-            response = "Please provide your phone number to find your reservation."
+            try:
+                from translations import get_text
+                response = get_text('phone_for_check', language_code)
+            except:
+                response = "Please provide your phone number to find your reservation."
             log_function_exit("handle_modify_reservation", response, False)
             return create_safe_response(response, "handle_modify_reservation")
         
-        # Search for user reservations
-        user_reservations, search_ok = safe_operation("get_user_reservations", get_user_reservations, phone, language_code)
+        print("🔄 PHASE 2: Searching for reservations...")
+        # Search for user reservations with improved error handling
+        user_reservations = []
+        search_ok = False
+        try:
+            user_reservations, search_ok = safe_operation("get_user_reservations", get_user_reservations, phone, language_code)
+            print(f"🔧 Found {len(user_reservations) if user_reservations else 0} reservations, success: {search_ok}")
+        except Exception as e:
+            print(f"❌ Reservation search failed: {e}")
+            search_ok = False
         
         if not search_ok:
-            response = "Sorry, I'm having trouble accessing your reservations. Please call us."
+            try:
+                from translations import get_text
+                response = get_text('sheets_error', language_code)
+            except:
+                response = "Sorry, I'm having trouble accessing your reservations. Please call us."
             log_function_exit("handle_modify_reservation", response, False)
             return create_safe_response(response, "handle_modify_reservation")
         
         if not user_reservations:
-            response = f"I couldn't find any active reservations for phone number {phone}. Please check the number or call us at {RESTAURANT_INFO['phone']}."
+            try:
+                from translations import get_text
+                response = get_text('reservation_not_found', language_code, phone=phone)
+            except:
+                response = f"I couldn't find any active reservations for phone number {phone}. Please check the number or call us at {RESTAURANT_INFO['phone']}."
             log_function_exit("handle_modify_reservation", response, False)
             return create_safe_response(response, "handle_modify_reservation")
         
+        print("🔄 PHASE 3: Building response...")
         # Handle single reservation case
         if len(user_reservations) == 1:
             reservation = user_reservations[0]
-            response = f"📋 Your current reservation: {reservation.get('Name', '')} for {reservation.get('Guests', '')} guests on {reservation.get('Date', '')} at {reservation.get('Time', '')} (Table {reservation.get('Table', '')}). What would you like to modify? You can say: 'Change the date to tomorrow', 'Change the time to 8pm' or 'Change to 4 guests'."
+            try:
+                from translations import get_text
+                response = get_text('current_reservation', language_code,
+                                  name=reservation.get('Name', ''),
+                                  guests=reservation.get('Guests', ''),
+                                  date=reservation.get('Date', ''),
+                                  time=reservation.get('Time', ''),
+                                  table=reservation.get('Table', ''))
+            except:
+                response = f"📋 Your current reservation: {reservation.get('Name', '')} for {reservation.get('Guests', '')} guests on {reservation.get('Date', '')} at {reservation.get('Time', '')} (Table {reservation.get('Table', '')}). What would you like to modify? You can say: 'Change the date to tomorrow', 'Change the time to 8pm' or 'Change to 4 guests'."
+            
             log_function_exit("handle_modify_reservation", response, True)
             return create_safe_response(response, "handle_modify_reservation")
         else:
             # Handle multiple reservations case
-            response = f"You have {len(user_reservations)} reservations. Please call us at {RESTAURANT_INFO['phone']} to specify which one to modify."
+            try:
+                from translations import get_text
+                response = get_text('multiple_reservations', language_code,
+                                  count=len(user_reservations),
+                                  phone=RESTAURANT_INFO['phone'])
+            except:
+                response = f"You have {len(user_reservations)} reservations. Please call us at {RESTAURANT_INFO['phone']} to specify which one to modify."
+            
             log_function_exit("handle_modify_reservation", response, False)
             return create_safe_response(response, "handle_modify_reservation")
             
     except Exception as e:
         print(f"❌ CRITICAL ERROR in handle_modify_reservation: {str(e)}")
         print(f"📚 Full traceback: {traceback.format_exc()}")
-        response = f'Sorry, error finding your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'
+        
+        # More robust error response
+        try:
+            from translations import get_text
+            response = get_text('general_error', language_code, phone=RESTAURANT_INFO['phone'])
+        except:
+            response = f'Sorry, error finding your reservation. Please call us at {RESTAURANT_INFO["phone"]}.'
+        
         log_function_exit("handle_modify_reservation", response, False)
         return create_safe_response(response, "handle_modify_reservation")
 
