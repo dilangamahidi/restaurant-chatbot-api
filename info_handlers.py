@@ -196,3 +196,57 @@ def handle_contact_human(language_code='en'):
     """Handle human contact request with multilingual support - Single comprehensive message"""
     try:
         from translations import get_text
+        
+        # Provide comprehensive contact information in a single message
+        contact_header = get_text('contact_staff', language_code)
+        phone_label = get_text('phone_label', language_code, phone=RESTAURANT_INFO['phone'])
+        email_label = get_text('email_label', language_code, email=RESTAURANT_INFO['email'])
+        
+        complete_contact = f"""{contact_header}
+
+{phone_label}
+
+{email_label}"""
+        
+        return create_utf8_response({'fulfillmentText': complete_contact})
+    except Exception as e:
+        try:
+            print(f"Error in handle_contact_human: {e}")
+        except:
+            print(f"Error in handle_contact_human: {str(e)}")
+        # Fallback to English
+        response_text = f"""👨‍💼 Contact our staff:
+
+📞 Phone:
+{RESTAURANT_INFO['phone']}
+
+📧 Email:
+{RESTAURANT_INFO['email']}"""
+        return create_utf8_response({'fulfillmentText': response_text})
+
+
+def handle_restaurant_location(language_code='en'):
+    """Handle restaurant location request with multilingual support - Single comprehensive message"""
+    try:
+        from translations import get_text
+        
+        # Provide comprehensive location information in a single message
+        location_header = get_text('location_header', language_code, restaurant=RESTAURANT_INFO['name'])
+        location_address = get_text('location_address', language_code, address=RESTAURANT_INFO['address'])
+        
+        complete_location = f"""{location_header}
+
+{location_address}"""
+        
+        return create_utf8_response({'fulfillmentText': complete_location})
+    except Exception as e:
+        try:
+            print(f"Error in handle_restaurant_location: {e}")
+        except:
+            print(f"Error in handle_restaurant_location: {str(e)}")
+        # Fallback to English
+        response_text = f"""📍 {RESTAURANT_INFO['name']} Location:
+
+🏠 Address:
+{RESTAURANT_INFO['address']}"""
+        return create_utf8_response({'fulfillmentText': response_text})
