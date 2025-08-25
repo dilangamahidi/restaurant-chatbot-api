@@ -43,8 +43,8 @@ def init_google_sheets():
         return None
 
 
-def save_reservation_to_sheets(reservation_data):
-    """Save reservation data to Google Sheets"""
+def save_reservation_to_sheets(reservation_data, language_code='en'):
+    """Save reservation data to Google Sheets with multilingual support"""
     try:
         # Initialize connection to Google Sheets
         sheet = init_google_sheets()
@@ -114,8 +114,8 @@ def check_existing_reservation(name, phone, date, time):
         return False
 
 
-def get_user_reservations(phone_number):
-    """Retrieve all active reservations for a user by phone number - VERSION WITH DEBUG"""
+def get_user_reservations(phone_number, language_code='en'):
+    """Retrieve all active reservations for a user by phone number with multilingual support"""
     try:
         # Get all reservations from the spreadsheet
         reservations = get_reservations_from_sheets()
@@ -161,8 +161,8 @@ def get_user_reservations(phone_number):
         return []
 
 
-def update_reservation_field(phone, old_date, old_time, field, new_value):
-    """Update a specific field of a reservation"""
+def update_reservation_field(phone, old_date, old_time, field, new_value, language_code='en'):
+    """Update a specific field of a reservation with multilingual support"""
     try:
         # Initialize connection to Google Sheets
         sheet = init_google_sheets()
@@ -205,8 +205,8 @@ def update_reservation_field(phone, old_date, old_time, field, new_value):
         return False
 
 
-def delete_reservation_from_sheets(phone, date, time):
-    """Completely delete a reservation from Google Sheets"""
+def delete_reservation_from_sheets(phone, date, time, language_code='en'):
+    """Completely delete a reservation from Google Sheets with multilingual support"""
     try:
         # Initialize connection to Google Sheets
         sheet = init_google_sheets()
@@ -245,8 +245,8 @@ def delete_reservation_from_sheets(phone, date, time):
         return False
 
 
-def update_reservation_status(phone, date, time, new_status):
-    """Update the status of a specific reservation"""
+def update_reservation_status(phone, date, time, new_status, language_code='en'):
+    """Update the status of a specific reservation with multilingual support"""
     try:
         # Initialize connection to Google Sheets
         sheet = init_google_sheets()
