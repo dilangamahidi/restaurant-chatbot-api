@@ -21,8 +21,8 @@ def get_email_config():
     }
 
 
-def create_confirmation_email_html(reservation_data):
-    """Create HTML template for reservation confirmation email"""
+def create_confirmation_email_html(reservation_data, language_code='en'):
+    """Create HTML template for reservation confirmation email with multilingual support"""
     # Professional HTML email template with modern styling
     # Uses inline CSS for maximum email client compatibility
     html_template = f"""
@@ -131,8 +131,8 @@ def create_confirmation_email_html(reservation_data):
     return html_template
 
 
-def send_confirmation_email(reservation_data):
-    """Send reservation confirmation email to customer"""
+def send_confirmation_email(reservation_data, language_code='en'):
+    """Send reservation confirmation email to customer with multilingual support"""
     try:
         # Get email configuration from environment variables
         email_config = get_email_config()
@@ -146,10 +146,21 @@ def send_confirmation_email(reservation_data):
         msg = MIMEMultipart('alternative')
         msg['From'] = f"{email_config['sender_name']} <{email_config['email_user']}>"
         msg['To'] = reservation_data['email']
-        msg['Subject'] = f"✅ Reservation Confirmed at {RESTAURANT_INFO['name']} - {reservation_data['date']}"
+        # Create multilingual subject
+        try:
+            from translations import get_text
+            subject_text = get_text('reservation_confirmed', language_code, 
+                                  name=reservation_data['name'], 
+                                  guests=reservation_data['guests'],
+                                  date=reservation_data['date'], 
+                                  time=reservation_data['time'],
+                                  table=reservation_data['table'])
+            msg['Subject'] = f"✅ {subject_text.split('!')[0]}" 
+        except:
+            msg['Subject'] = f"✅ Reservation Confirmed at {RESTAURANT_INFO['name']} - {reservation_data['date']}"
         
         # Create HTML version of the email (rich formatting)
-        html_content = create_confirmation_email_html(reservation_data)
+        html_content = create_confirmation_email_html(reservation_data, language_code)
         html_part = MIMEText(html_content, 'html')
         
         # Create plain text version (fallback for email clients that don't support HTML)
@@ -209,8 +220,8 @@ def send_confirmation_email(reservation_data):
         return False
 
 
-def send_admin_notification(reservation_data):
-    """Send notification to restaurant about new reservation"""
+def send_admin_notification(reservation_data, language_code='en'):
+    """Send notification to restaurant about new reservation with multilingual support"""
     try:
         # Get email configuration from environment variables
         email_config = get_email_config()
