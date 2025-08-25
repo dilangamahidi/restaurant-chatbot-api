@@ -10,7 +10,7 @@ from config import SCOPES, SHEET_ID
 
 
 def init_google_sheets():
-    """Initialize Google Sheets connection"""
+    """Initialize Google Sheets connection with improved error handling"""
     try:
         # First try environment variables (for production deployment)
         google_credentials = os.environ.get('GOOGLE_CREDENTIALS')
@@ -18,28 +18,51 @@ def init_google_sheets():
         if google_credentials:
             print("🔧 DEBUG - Found credentials in environment variable")
             # Production: use environment variable containing service account JSON
-            creds_dict = json.loads(google_credentials)
-            creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
+            try:
+                creds_dict = json.loads(google_credentials)
+                creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
+            except json.JSONDecodeError as e:
+                print(f"❌ Invalid JSON in GOOGLE_CREDENTIALS: {e}")
+                return None
         else:
             print("🔧 DEBUG - Looking for local credentials.json file")
             # Local development: use credentials file
             if os.path.exists('credentials.json'):
                 print("🔧 DEBUG - credentials.json file found")
-                creds = Credentials.from_service_account_file('credentials.json', scopes=SCOPES)
+                try:
+                    creds = Credentials.from_service_account_file('credentials.json', scopes=SCOPES)
+                except Exception as e:
+                    print(f"❌ Error loading credentials.json: {e}")
+                    return None
             else:
                 print("❌ No credentials found - Google Sheets disabled")
                 return None
         
         print("🔧 DEBUG - Attempting to connect to Google Sheets...")
-        # Authorize the client and open the spreadsheet
-        client = gspread.authorize(creds)
-        sheet = client.open_by_key(SHEET_ID).sheet1
-        print("✅ Google Sheets connected successfully!")
-        return sheet
+        # Authorize the client and open the spreadsheet with timeout handling
+        try:
+            client = gspread.authorize(creds)
+            sheet = client.open_by_key(SHEET_ID).sheet1
+            
+            # Test the connection by trying a simple operation
+            try:
+                # Try to get just the first row to test connection
+                test_read = sheet.get_all_values(f'A1:A1')
+                print("✅ Google Sheets connected and tested successfully!")
+                return sheet
+            except Exception as e:
+                print(f"❌ Google Sheets connection test failed: {e}")
+                return None
+                
+        except Exception as e:
+            print(f"❌ Failed to authorize Google Sheets client: {e}")
+            return None
         
     except Exception as e:
-        print(f"❌ Google Sheets error: {e}")
+        print(f"❌ Google Sheets initialization error: {e}")
         print(f"🔧 DEBUG - Error type: {type(e)}")
+        import traceback
+        print(f"📚 Traceback: {traceback.format_exc()}")
         return None
 
 
@@ -117,13 +140,22 @@ def check_existing_reservation(name, phone, date, time):
 def get_user_reservations(phone_number, language_code='en'):
     """Retrieve all active reservations for a user by phone number with multilingual support"""
     try:
-        # Get all reservations from the spreadsheet
-        reservations = get_reservations_from_sheets()
+        # Get all reservations from the spreadsheet with error handling
+        reservations = []
+        try:
+            reservations = get_reservations_from_sheets()
+            if reservations is None:
+                print("❌ get_reservations_from_sheets returned None")
+                return []
+        except Exception as e:
+            print(f"❌ Failed to get reservations from sheets: {e}")
+            return []
+        
         print(f"🔧 DEBUG - Total reservations in sheet: {len(reservations)}")
         print(f"🔧 DEBUG - Looking for phone: '{phone_number}' (type: {type(phone_number)})")
         
-        # Debug: print all reservations for troubleshooting
-        for i, reservation in enumerate(reservations):
+        # Only print detailed debug info for first few reservations to avoid spam
+        for i, reservation in enumerate(reservations[:3]):  # Only first 3 for debug
             print(f"🔧 DEBUG - Reservation {i+1}:")
             print(f"    Name: '{reservation.get('Name', '')}' (type: {type(reservation.get('Name', ''))})")
             print(f"    Phone: '{reservation.get('Phone', '')}' (type: {type(reservation.get('Phone', ''))})")
@@ -131,25 +163,34 @@ def get_user_reservations(phone_number, language_code='en'):
             print(f"    Date: '{reservation.get('Date', '')}' (type: {type(reservation.get('Date', ''))})")
             print(f"    All keys: {list(reservation.keys())}")
         
+        if len(reservations) > 3:
+            print(f"🔧 DEBUG - ... and {len(reservations) - 3} more reservations")
+        
         # Filter reservations for the specific user
         user_reservations = []
         
         for reservation in reservations:
-            # Convert to string and strip whitespace for comparison
-            phone_in_sheet = str(reservation.get('Phone', '')).strip()
-            status_in_sheet = str(reservation.get('Status', '')).strip()
-            phone_to_find = str(phone_number).strip()
-            
-            print(f"🔧 DEBUG - Comparing:")
-            print(f"    Phone in sheet: '{phone_in_sheet}' == '{phone_to_find}' ? {phone_in_sheet == phone_to_find}")
-            print(f"    Status in sheet: '{status_in_sheet}' == 'Confirmed' ? {status_in_sheet == 'Confirmed'}")
-            
-            # Match phone number and confirmed status
-            if phone_in_sheet == phone_to_find and status_in_sheet == 'Confirmed':
-                user_reservations.append(reservation)
-                print(f"✅ MATCH FOUND for phone {phone_number}")
-            else:
-                print(f"❌ NO MATCH for phone {phone_number}")
+            try:
+                # Convert to string and strip whitespace for comparison
+                phone_in_sheet = str(reservation.get('Phone', '')).strip()
+                status_in_sheet = str(reservation.get('Status', '')).strip()
+                phone_to_find = str(phone_number).strip()
+                
+                # Enhanced phone number matching (remove common formatting)
+                phone_in_sheet_clean = phone_in_sheet.replace('-', '').replace('(', '').replace(')', '').replace(' ', '')
+                phone_to_find_clean = phone_to_find.replace('-', '').replace('(', '').replace(')', '').replace(' ', '')
+                
+                phone_match = (phone_in_sheet == phone_to_find or 
+                             phone_in_sheet_clean == phone_to_find_clean)
+                status_match = status_in_sheet == 'Confirmed'
+                
+                if phone_match and status_match:
+                    user_reservations.append(reservation)
+                    print(f"✅ MATCH FOUND for phone {phone_number}")
+                
+            except Exception as e:
+                print(f"❌ Error processing reservation: {e}")
+                continue
         
         print(f"🔧 DEBUG - Found {len(user_reservations)} matching reservations")
         return user_reservations
