@@ -17,13 +17,16 @@ def create_utf8_response(data):
             status=200
         )
     except Exception as e:
-        print(f"❌ Error creating UTF-8 response: {e}")
+        try:
+            print(f"Error creating UTF-8 response: {e}")
+        except:
+            print(f"Error creating UTF-8 response: {str(e)}")
         # Fallback
         fallback = json.dumps({'fulfillmentText': 'Sorry, there was an error.'}, ensure_ascii=False)
         return Response(fallback, content_type='application/json; charset=utf-8')
     
 def handle_show_menu(parameters, language_code='en'):
-    """Handle menu display - MULTIPLE MESSAGES with multilingual support"""
+    """Handle menu display - Single comprehensive message with all menu items"""
     try:
         from translations import get_text
         
@@ -37,210 +40,159 @@ def handle_show_menu(parameters, language_code='en'):
             response_text = f"🍽️ {menu_category.title()} Menu:\n\n" + "\n".join([f"{i}. {item}" for i, item in enumerate(items, 1)])
             return create_utf8_response({'fulfillmentText': response_text})
         else:
-            # Show complete menu using multiple messages for better readability
-            rich_response = {
-                # Main fulfillment text (fallback)
-                "fulfillmentText": get_text('menu_header', language_code, restaurant=RESTAURANT_INFO['name']),
-                # Rich response with multiple message bubbles
-                "fulfillmentMessages": [
-                    {
-                        # Header message with restaurant name
-                        "text": {
-                            "text": [get_text('menu_header', language_code, restaurant=RESTAURANT_INFO['name'])]
-                        }
-                    },
-                    {
-                        # Breakfast menu section
-                        "text": {
-                            "text": [get_text('breakfast', language_code) + "\n" + "\n".join([f"• {item}" for item in MENU['breakfast']])]
-                        }
-                    },
-                    {
-                        # Lunch menu section
-                        "text": {
-                            "text": [get_text('lunch', language_code) + "\n" + "\n".join([f"• {item}" for item in MENU['lunch']])]
-                        }
-                    },
-                    {
-                        # Dinner menu section
-                        "text": {
-                            "text": [get_text('dinner', language_code) + "\n" + "\n".join([f"• {item}" for item in MENU['dinner']])]
-                        }
-                    },
-                    {
-                        # Beverages section
-                        "text": {
-                            "text": [get_text('beverages', language_code) + "\n" + "\n".join([f"• {item}" for item in MENU['beverages']])]
-                        }
-                    },
-                ]
-            }
-            return create_utf8_response(rich_response)
-    except:
-        # Fallback to English
-        response_text = f"🍽️ {RESTAURANT_INFO['name']} Menu:"
-        return create_utf8_response({'fulfillmentText': response_text})
+            # Show complete menu in a single comprehensive message
+            menu_header = get_text('menu_header', language_code, restaurant=RESTAURANT_INFO['name'])
+            breakfast_header = get_text('breakfast', language_code)
+            lunch_header = get_text('lunch', language_code)
+            dinner_header = get_text('dinner', language_code)
+            beverages_header = get_text('beverages', language_code)
+            
+            # Build complete menu text
+            complete_menu = f"""{menu_header}
+
+{breakfast_header}
+• {MENU['breakfast'][0]}
+• {MENU['breakfast'][1]}
+• {MENU['breakfast'][2]}
+• {MENU['breakfast'][3]}
+
+{lunch_header}
+• {MENU['lunch'][0]}
+• {MENU['lunch'][1]}
+• {MENU['lunch'][2]}
+• {MENU['lunch'][3]}
+
+{dinner_header}
+• {MENU['dinner'][0]}
+• {MENU['dinner'][1]}
+• {MENU['dinner'][2]}
+• {MENU['dinner'][3]}
+
+{beverages_header}
+• {MENU['beverages'][0]}
+• {MENU['beverages'][1]}
+• {MENU['beverages'][2]}
+• {MENU['beverages'][3]}"""
+            
+            return create_utf8_response({'fulfillmentText': complete_menu})
+    except Exception as e:
+        try:
+            print(f"Error in handle_show_menu: {e}")
+        except:
+            print(f"Error in handle_show_menu: {str(e)}")
+        # Fallback with actual menu items
+        fallback_menu = f"""🍽️ {RESTAURANT_INFO['name']} Menu:
+
+☀️ BREAKFAST:
+• String Hoppers with Curry
+• Milk Rice (Kiribath)
+• Coconut Roti with Sambol
+• Ceylon Tea
+
+🍛 LUNCH:
+• Rice and Curry
+• Kottu Roti
+• Fried Rice
+• Hoppers with Egg
+
+🌅 DINNER:
+• Fish Curry
+• Chicken Curry
+• Seafood Platter
+• Vegetarian Curry
+
+🥤 BEVERAGES:
+• King Coconut
+• Ceylon Tea
+• Fresh Juices
+• Local Beer"""
+        return create_utf8_response({'fulfillmentText': fallback_menu})
 
 
 def handle_opening_hours(language_code='en'):
-    """Handle opening hours display with multilingual support"""
+    """Handle opening hours display with multilingual support - Single comprehensive message"""
     try:
         from translations import get_text
         
-        # Create structured response with separate messages
-        rich_response = {
-            # Fallback text
-            "fulfillmentText": get_text('opening_hours_header', language_code, restaurant=RESTAURANT_INFO['name']),
-            # Rich messages
-            "fulfillmentMessages": [
-                {
-                    # Header message
-                    "text": {
-                        "text": [get_text('opening_hours_header', language_code, restaurant=RESTAURANT_INFO['name'])]
-                    }
-                },
-                {
-                    # Weekday hours
-                    "text": {
-                        "text": [get_text('weekday_hours', language_code)]
-                    }
-                },
-                {
-                    # Sunday hours
-                    "text": {
-                        "text": [get_text('sunday_hours', language_code)]
-                    }
-                },
-            ]
-        }
-        return create_utf8_response(rich_response)
-    except:
+        # Create single comprehensive response
+        header = get_text('opening_hours_header', language_code, restaurant=RESTAURANT_INFO['name'])
+        weekday_hours = get_text('weekday_hours', language_code)
+        sunday_hours = get_text('sunday_hours', language_code)
+        
+        complete_hours = f"""{header}
+
+{weekday_hours}
+
+{sunday_hours}"""
+        
+        return create_utf8_response({'fulfillmentText': complete_hours})
+    except Exception as e:
+        try:
+            print(f"Error in handle_opening_hours: {e}")
+        except:
+            print(f"Error in handle_opening_hours: {str(e)}")
         # Fallback to English
-        response_text = f"🕐 {RESTAURANT_INFO['name']} Opening Hours:\nMonday - Saturday: 09:00 AM - 09:00 PM\nSunday: 10:00 AM - 08:00 PM"
+        response_text = f"""🕐 {RESTAURANT_INFO['name']} Opening Hours:
+
+📅 Monday - Saturday:
+09:00 AM - 09:00 PM
+
+📅 Sunday:
+10:00 AM - 08:00 PM"""
         return create_utf8_response({'fulfillmentText': response_text})
 
 
 def handle_restaurant_info(language_code='en'):
-    """Handle restaurant information display with multilingual support"""
+    """Handle restaurant information display with multilingual support - Single comprehensive message"""
     try:
         from translations import get_text
         
-        # Create detailed restaurant information using multiple message bubbles
-        rich_response = {
-            # Simple fallback text
-            "fulfillmentText": get_text('restaurant_info_header', language_code, restaurant=RESTAURANT_INFO['name']),
-            # Detailed rich response
-            "fulfillmentMessages": [
-                {
-                    # Restaurant name header
-                    "text": {
-                        "text": [get_text('restaurant_info_header', language_code, restaurant=RESTAURANT_INFO['name'])]
-                    }
-                },
-                {
-                    # Restaurant description
-                    "text": {
-                        "text": [f"{RESTAURANT_INFO['description']}"]
-                    }
-                },
-                {
-                    # Physical address
-                    "text": {
-                        "text": [get_text('address_label', language_code, address=RESTAURANT_INFO['address'])]
-                    }
-                },
-                {
-                    # Phone contact
-                    "text": {
-                        "text": [get_text('phone_label', language_code, phone=RESTAURANT_INFO['phone'])]
-                    }
-                },
-                {
-                    # Email contact
-                    "text": {
-                        "text": [get_text('email_label', language_code, email=RESTAURANT_INFO['email'])]
-                    }
-                },
-                {
-                    # Operating hours summary
-                    "text": {
-                        "text": [get_text('hours_summary', language_code)]
-                    }
-                }
-            ]
-        }
-        return create_utf8_response(rich_response)
-    except:
+        # Create single comprehensive restaurant information
+        header = get_text('restaurant_info_header', language_code, restaurant=RESTAURANT_INFO['name'])
+        address_label = get_text('address_label', language_code, address=RESTAURANT_INFO['address'])
+        phone_label = get_text('phone_label', language_code, phone=RESTAURANT_INFO['phone'])
+        email_label = get_text('email_label', language_code, email=RESTAURANT_INFO['email'])
+        hours_summary = get_text('hours_summary', language_code)
+        
+        complete_info = f"""{header}
+
+{RESTAURANT_INFO['description']}
+
+{address_label}
+
+{phone_label}
+
+{email_label}
+
+{hours_summary}"""
+        
+        return create_utf8_response({'fulfillmentText': complete_info})
+    except Exception as e:
+        try:
+            print(f"Error in handle_restaurant_info: {e}")
+        except:
+            print(f"Error in handle_restaurant_info: {str(e)}")
         # Fallback to English
-        response_text = f"🍽️ {RESTAURANT_INFO['name']}\n{RESTAURANT_INFO['description']}\n📍 Address: {RESTAURANT_INFO['address']}"
+        response_text = f"""🍽️ {RESTAURANT_INFO['name']}
+
+{RESTAURANT_INFO['description']}
+
+📍 Address:
+{RESTAURANT_INFO['address']}
+
+📞 Phone:
+{RESTAURANT_INFO['phone']}
+
+📧 Email:
+{RESTAURANT_INFO['email']}
+
+🕐 Hours:
+Mon-Sat 9AM-9PM
+Sun 10AM-8PM"""
         return create_utf8_response({'fulfillmentText': response_text})
 
 
 def handle_contact_human(language_code='en'):
-    """Handle human contact request with multilingual support"""
+    """Handle human contact request with multilingual support - Single comprehensive message"""
     try:
         from translations import get_text
-        
-        # Provide multiple ways for customers to reach human staff
-        rich_response = {
-            # Simple fallback message
-            "fulfillmentText": get_text('contact_staff', language_code),
-            # Rich response with contact options
-            "fulfillmentMessages": [
-                {
-                    # Header message
-                    "text": {
-                        "text": [get_text('contact_staff', language_code)]
-                    }
-                },
-                {
-                    # Phone contact option
-                    "text": {
-                        "text": [get_text('phone_label', language_code, phone=RESTAURANT_INFO['phone'])]
-                    }
-                },
-                {
-                    # Email contact option
-                    "text": {
-                        "text": [get_text('email_label', language_code, email=RESTAURANT_INFO['email'])]
-                    }
-                },
-            ]
-        }
-        return create_utf8_response(rich_response)
-    except:
-        # Fallback to English
-        response_text = f"👨‍💼 Contact our staff:\n📞 Phone: {RESTAURANT_INFO['phone']}\n📧 Email: {RESTAURANT_INFO['email']}"
-        return create_utf8_response({'fulfillmentText': response_text})
-
-
-def handle_restaurant_location(language_code='en'):
-    """Handle restaurant location request with multilingual support"""
-    try:
-        from translations import get_text
-        
-        # Provide restaurant location information
-        rich_response = {
-            # Simple location fallback
-            "fulfillmentText": get_text('location_header', language_code, restaurant=RESTAURANT_INFO['name']),
-            # Rich response with detailed location
-            "fulfillmentMessages": [
-                {
-                    # Location header
-                    "text": {
-                        "text": [get_text('location_header', language_code, restaurant=RESTAURANT_INFO['name'])]
-                    }
-                },
-                {
-                    # Full address
-                    "text": {
-                        "text": [get_text('location_address', language_code, address=RESTAURANT_INFO['address'])]
-                    }
-                },
-            ]
-        }
-        return create_utf8_response(rich_response)
-    except:
-        # Fallback to English
-        response_text = f"📍 {RESTAURANT_INFO['name']} Location:\n🏠 Address: {RESTAURANT_INFO['address']}"
-        return create_utf8_response({'fulfillmentText': response_text})
