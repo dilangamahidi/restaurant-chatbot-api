@@ -47,32 +47,40 @@ def handle_show_menu(parameters, language_code='en'):
             dinner_header = get_text('dinner', language_code)
             beverages_header = get_text('beverages', language_code)
             
-            # Build complete menu text
+            # Build complete menu text with better organization
             complete_menu = f"""{menu_header}
 
-{breakfast_header}
-• {MENU['breakfast'][0]}
-• {MENU['breakfast'][1]}
-• {MENU['breakfast'][2]}
-• {MENU['breakfast'][3]}
+┌─────────────────────────────┐
+│          {breakfast_header}         │
+└─────────────────────────────┘
+1️⃣ {MENU['breakfast'][0]}
+2️⃣ {MENU['breakfast'][1]}
+3️⃣ {MENU['breakfast'][2]}
+4️⃣ {MENU['breakfast'][3]}
 
-{lunch_header}
-• {MENU['lunch'][0]}
-• {MENU['lunch'][1]}
-• {MENU['lunch'][2]}
-• {MENU['lunch'][3]}
+┌─────────────────────────────┐
+│            {lunch_header}           │
+└─────────────────────────────┘
+1️⃣ {MENU['lunch'][0]}
+2️⃣ {MENU['lunch'][1]}
+3️⃣ {MENU['lunch'][2]}
+4️⃣ {MENU['lunch'][3]}
 
-{dinner_header}
-• {MENU['dinner'][0]}
-• {MENU['dinner'][1]}
-• {MENU['dinner'][2]}
-• {MENU['dinner'][3]}
+┌─────────────────────────────┐
+│           {dinner_header}          │
+└─────────────────────────────┘
+1️⃣ {MENU['dinner'][0]}
+2️⃣ {MENU['dinner'][1]}
+3️⃣ {MENU['dinner'][2]}
+4️⃣ {MENU['dinner'][3]}
 
-{beverages_header}
-• {MENU['beverages'][0]}
-• {MENU['beverages'][1]}
-• {MENU['beverages'][2]}
-• {MENU['beverages'][3]}"""
+┌─────────────────────────────┐
+│         {beverages_header}        │
+└─────────────────────────────┘
+🥤 {MENU['beverages'][0]}
+🥤 {MENU['beverages'][1]}
+🥤 {MENU['beverages'][2]}
+🥤 {MENU['beverages'][3]}"""
             
             return create_utf8_response({'fulfillmentText': complete_menu})
     except Exception as e:
@@ -80,32 +88,40 @@ def handle_show_menu(parameters, language_code='en'):
             print(f"Error in handle_show_menu: {e}")
         except:
             print(f"Error in handle_show_menu: {str(e)}")
-        # Fallback with actual menu items
+        # Fallback with actual menu items - better organized
         fallback_menu = f"""🍽️ {RESTAURANT_INFO['name']} Menu:
 
-☀️ BREAKFAST:
-• String Hoppers with Curry
-• Milk Rice (Kiribath)
-• Coconut Roti with Sambol
-• Ceylon Tea
+┌─────────────────────────────┐
+│        ☀️ BREAKFAST ☀️      │
+└─────────────────────────────┘
+1️⃣ String Hoppers with Curry
+2️⃣ Milk Rice (Kiribath)
+3️⃣ Coconut Roti with Sambol
+4️⃣ Ceylon Tea
 
-🍛 LUNCH:
-• Rice and Curry
-• Kottu Roti
-• Fried Rice
-• Hoppers with Egg
+┌─────────────────────────────┐
+│         🍛 LUNCH 🍛         │
+└─────────────────────────────┘
+1️⃣ Rice and Curry
+2️⃣ Kottu Roti
+3️⃣ Fried Rice
+4️⃣ Hoppers with Egg
 
-🌅 DINNER:
-• Fish Curry
-• Chicken Curry
-• Seafood Platter
-• Vegetarian Curry
+┌─────────────────────────────┐
+│        🌅 DINNER 🌅        │
+└─────────────────────────────┘
+1️⃣ Fish Curry
+2️⃣ Chicken Curry
+3️⃣ Seafood Platter
+4️⃣ Vegetarian Curry
 
-🥤 BEVERAGES:
-• King Coconut
-• Ceylon Tea
-• Fresh Juices
-• Local Beer"""
+┌─────────────────────────────┐
+│       🥤 BEVERAGES 🥤      │
+└─────────────────────────────┘
+🥤 King Coconut
+🥤 Ceylon Tea
+🥤 Fresh Juices
+🥤 Local Beer"""
         return create_utf8_response({'fulfillmentText': fallback_menu})
 
 
@@ -121,9 +137,13 @@ def handle_opening_hours(language_code='en'):
         
         complete_hours = f"""{header}
 
-{weekday_hours}
+┌─────────────────────────────────────┐
+│           📅 SCHEDULE 📅            │
+└─────────────────────────────────────┘
 
-{sunday_hours}"""
+🗓️ {weekday_hours}
+
+🗓️ {sunday_hours}"""
         
         return create_utf8_response({'fulfillmentText': complete_hours})
     except Exception as e:
@@ -131,14 +151,18 @@ def handle_opening_hours(language_code='en'):
             print(f"Error in handle_opening_hours: {e}")
         except:
             print(f"Error in handle_opening_hours: {str(e)}")
-        # Fallback to English
+        # Fallback to English - better organized
         response_text = f"""🕐 {RESTAURANT_INFO['name']} Opening Hours:
 
-📅 Monday - Saturday:
-09:00 AM - 09:00 PM
+┌─────────────────────────────────────┐
+│           📅 SCHEDULE 📅            │
+└─────────────────────────────────────┘
 
-📅 Sunday:
-10:00 AM - 08:00 PM"""
+🗓️ Monday - Saturday:
+   ⏰ 09:00 AM - 09:00 PM
+
+🗓️ Sunday:
+   ⏰ 10:00 AM - 08:00 PM"""
         return create_utf8_response({'fulfillmentText': response_text})
 
 
@@ -156,14 +180,23 @@ def handle_restaurant_info(language_code='en'):
         
         complete_info = f"""{header}
 
+┌─────────────────────────────────────────────┐
+│              📖 DESCRIPTION 📖              │
+└─────────────────────────────────────────────┘
 {RESTAURANT_INFO['description']}
 
-{address_label}
+┌─────────────────────────────────────────────┐
+│            📍 CONTACT INFO 📍               │
+└─────────────────────────────────────────────┘
+🏠 {address_label}
 
-{phone_label}
+📞 {phone_label}
 
-{email_label}
+📧 {email_label}
 
+┌─────────────────────────────────────────────┐
+│              🕐 HOURS 🕐                    │
+└─────────────────────────────────────────────┘
 {hours_summary}"""
         
         return create_utf8_response({'fulfillmentText': complete_info})
@@ -172,23 +205,31 @@ def handle_restaurant_info(language_code='en'):
             print(f"Error in handle_restaurant_info: {e}")
         except:
             print(f"Error in handle_restaurant_info: {str(e)}")
-        # Fallback to English
+        # Fallback to English - better organized
         response_text = f"""🍽️ {RESTAURANT_INFO['name']}
 
+┌─────────────────────────────────────────────┐
+│              📖 DESCRIPTION 📖              │
+└─────────────────────────────────────────────┘
 {RESTAURANT_INFO['description']}
 
-📍 Address:
-{RESTAURANT_INFO['address']}
+┌─────────────────────────────────────────────┐
+│            📍 CONTACT INFO 📍               │
+└─────────────────────────────────────────────┘
+🏠 Address:
+   {RESTAURANT_INFO['address']}
 
 📞 Phone:
-{RESTAURANT_INFO['phone']}
+   {RESTAURANT_INFO['phone']}
 
 📧 Email:
-{RESTAURANT_INFO['email']}
+   {RESTAURANT_INFO['email']}
 
-🕐 Hours:
-Mon-Sat 9AM-9PM
-Sun 10AM-8PM"""
+┌─────────────────────────────────────────────┐
+│              🕐 HOURS 🕐                    │
+└─────────────────────────────────────────────┘
+⏰ Mon-Sat: 9AM-9PM
+⏰ Sun: 10AM-8PM"""
         return create_utf8_response({'fulfillmentText': response_text})
 
 
@@ -204,9 +245,13 @@ def handle_contact_human(language_code='en'):
         
         complete_contact = f"""{contact_header}
 
-{phone_label}
+┌─────────────────────────────────────────┐
+│          👨‍💼 STAFF CONTACT 👨‍💼         │
+└─────────────────────────────────────────┘
 
-{email_label}"""
+📞 {phone_label}
+
+📧 {email_label}"""
         
         return create_utf8_response({'fulfillmentText': complete_contact})
     except Exception as e:
@@ -214,14 +259,18 @@ def handle_contact_human(language_code='en'):
             print(f"Error in handle_contact_human: {e}")
         except:
             print(f"Error in handle_contact_human: {str(e)}")
-        # Fallback to English
+        # Fallback to English - better organized
         response_text = f"""👨‍💼 Contact our staff:
 
+┌─────────────────────────────────────────┐
+│          👨‍💼 STAFF CONTACT 👨‍💼         │
+└─────────────────────────────────────────┘
+
 📞 Phone:
-{RESTAURANT_INFO['phone']}
+   {RESTAURANT_INFO['phone']}
 
 📧 Email:
-{RESTAURANT_INFO['email']}"""
+   {RESTAURANT_INFO['email']}"""
         return create_utf8_response({'fulfillmentText': response_text})
 
 
@@ -236,7 +285,11 @@ def handle_restaurant_location(language_code='en'):
         
         complete_location = f"""{location_header}
 
-{location_address}"""
+┌─────────────────────────────────────────┐
+│           📍 LOCATION 📍                │
+└─────────────────────────────────────────┘
+
+🏠 {location_address}"""
         
         return create_utf8_response({'fulfillmentText': complete_location})
     except Exception as e:
@@ -244,9 +297,13 @@ def handle_restaurant_location(language_code='en'):
             print(f"Error in handle_restaurant_location: {e}")
         except:
             print(f"Error in handle_restaurant_location: {str(e)}")
-        # Fallback to English
+        # Fallback to English - better organized
         response_text = f"""📍 {RESTAURANT_INFO['name']} Location:
 
+┌─────────────────────────────────────────┐
+│           📍 LOCATION 📍                │
+└─────────────────────────────────────────┘
+
 🏠 Address:
-{RESTAURANT_INFO['address']}"""
+   {RESTAURANT_INFO['address']}"""
         return create_utf8_response({'fulfillmentText': response_text})
