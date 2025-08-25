@@ -200,22 +200,45 @@ def handle_intent_fallback(intent_name, parameters, language_code):
 
 
 def handle_error(error, language_code='en'):
-    """Handle errors with multilingual support"""
+    """Handle errors with multilingual support and improved error reporting"""
     print(f"❌ WEBHOOK ERROR: {error}")
+    print(f"❌ ERROR TYPE: {type(error)}")
     print(f"❌ TRACEBACK: {traceback.format_exc()}")
     
-    # Multilingual error messages
-    error_messages = {
-        'en': f"I'm experiencing technical difficulties. Please call us at {RESTAURANT_INFO['phone']} for immediate assistance.",
-        'si': f"මට තාක්ෂණික ගැටළුවක් ඇති වී ඇත. කරුණාකර {RESTAURANT_INFO['phone']} අමතන්න.",
-        'ta': f"எனக்கு தொழில்நுட்ப சிக்கல் உள்ளது. தயவுசெய்து {RESTAURANT_INFO['phone']} அழைக்கவும்."
-    }
+    # Try to get error message from translations module first
+    try:
+        from translations import get_text
+        error_message = get_text('technical_issue', language_code, phone=RESTAURANT_INFO['phone'])
+    except Exception as translation_error:
+        print(f"❌ Translation error: {translation_error}")
+        # Fallback multilingual error messages
+        error_messages = {
+            'en': f"I'm experiencing technical difficulties. Please call us at {RESTAURANT_INFO['phone']} for immediate assistance.",
+            'si': f"මට තාක්ෂණික ගැටළුවක් ඇති වී ඇත. කරුණාකර {RESTAURANT_INFO['phone']} අමතන්න.",
+            'ta': f"எனக்கு தொழில்நுட்ப சிக்கல் உள்ளது. தயவுசெய்து {RESTAURANT_INFO['phone']} அழைக்கவும்."
+        }
+        error_message = error_messages.get(language_code, error_messages['en'])
     
-    error_message = error_messages.get(language_code, error_messages['en'])
+    # Ensure we have a valid error message
+    if not error_message or not isinstance(error_message, str):
+        error_message = f"Technical issue. Please call {RESTAURANT_INFO['phone']}."
     
-    return jsonify({
-        'fulfillmentText': error_message
-    })
+    try:
+        return jsonify({
+            'fulfillmentText': error_message
+        })
+    except Exception as json_error:
+        print(f"❌ CRITICAL: Even error response failed: {json_error}")
+        # Ultimate fallback
+        try:
+            return jsonify({
+                'fulfillmentText': "Technical issue. Please call the restaurant."
+            })
+        except:
+            # If even this fails, return a plain text response
+            from flask import Response
+            return Response("Technical issue. Please call the restaurant.", 
+                          content_type='text/plain', status=500)
 
 
 @app.route('/')
