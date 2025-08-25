@@ -140,11 +140,12 @@ def convert_time_to_hour_improved(time_str):
         return 19  # Default to 7PM
 
 
-def check_restaurant_hours(hour):
+def check_restaurant_hours(hour, language_code='en'):
     """
     Check if the time is within restaurant operating hours
     Returns: (is_valid, message)
     """
+    from translations import get_text
     RESTAURANT_OPEN_HOUR = 9   # 9 AM
     RESTAURANT_CLOSE_HOUR = 21 # 9 PM
     
@@ -166,7 +167,7 @@ def check_restaurant_hours(hour):
             else:
                 time_attempted = f"{hour}:00"
                 
-            message = f"Sorry, we're not open at {time_attempted}. Our restaurant is open from 9:00 AM to 9:00 PM. Please choose a time between 9 AM and 9 PM."
+            message = get_text('invalid_time', language_code, time=time_attempted)
         else:
             # Too late - after closing
             if hour == 12:
@@ -179,12 +180,12 @@ def check_restaurant_hours(hour):
                 hour_12 = hour - 12 if hour > 12 else hour
                 time_attempted = f"{hour_12}:00 PM"
                 
-            message = f"Sorry, we're not open at {time_attempted}. Our restaurant closes at 9:00 PM. Please choose a time between 9:00 AM and 9:00 PM."
+            message = get_text('invalid_time', language_code, time=time_attempted)
         
         return False, message
 
 
-def parse_dialogflow_datetime(date_param, time_param):
+def parse_dialogflow_datetime(date_param, time_param, language_code='en'):
     """
     Parse date/time from Dialogflow AND Google Sheets - WITH TIME VALIDATION
     Returns: (day_of_week, hour_of_day, error_message)
@@ -301,7 +302,7 @@ def parse_dialogflow_datetime(date_param, time_param):
                 print(f"🔧 DEBUG - Parsed ISO time: {time_part}, parsed_hour: {parsed_hour}")
                 
                 # 🆕 VALIDATION INSTEAD OF AUTOMATIC CONVERSION
-                is_valid, error_msg = check_restaurant_hours(parsed_hour)
+                is_valid, error_msg = check_restaurant_hours(parsed_hour, language_code)
                 if not is_valid:
                     print(f"❌ Time validation failed: {error_msg}")
                     return day_of_week, parsed_hour, error_msg
@@ -313,7 +314,7 @@ def parse_dialogflow_datetime(date_param, time_param):
                 print(f"🔧 DEBUG - Parsed 12h time: {time_str}, parsed_hour: {parsed_hour}")
                 
                 # 🆕 VALIDATION INSTEAD OF AUTOMATIC CONVERSION
-                is_valid, error_msg = check_restaurant_hours(parsed_hour)
+                is_valid, error_msg = check_restaurant_hours(parsed_hour, language_code)
                 if not is_valid:
                     print(f"❌ Time validation failed: {error_msg}")
                     return day_of_week, parsed_hour, error_msg
@@ -325,7 +326,7 @@ def parse_dialogflow_datetime(date_param, time_param):
                 print(f"🔧 DEBUG - Parsed 24h time: {time_str}, parsed_hour: {parsed_hour}")
                 
                 # 🆕 VALIDATION INSTEAD OF AUTOMATIC CONVERSION
-                is_valid, error_msg = check_restaurant_hours(parsed_hour)
+                is_valid, error_msg = check_restaurant_hours(parsed_hour, language_code)
                 if not is_valid:
                     print(f"❌ Time validation failed: {error_msg}")
                     return day_of_week, parsed_hour, error_msg
@@ -338,7 +339,7 @@ def parse_dialogflow_datetime(date_param, time_param):
                     print(f"🔧 DEBUG - Parsed simple hour: {parsed_hour}")
                     
                     # 🆕 VALIDATION INSTEAD OF AUTOMATIC CONVERSION
-                    is_valid, error_msg = check_restaurant_hours(parsed_hour)
+                    is_valid, error_msg = check_restaurant_hours(parsed_hour, language_code)
                     if not is_valid:
                         print(f"❌ Time validation failed: {error_msg}")
                         return day_of_week, parsed_hour, error_msg
