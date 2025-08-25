@@ -49,8 +49,8 @@ def load_model():
 # Load the model on import
 load_model()
 
-def check_table_availability(table_number, guest_count, day_of_week, hour_of_day):
-    """Use ML model to check table availability with intelligent fallback"""
+def check_table_availability(table_number, guest_count, day_of_week, hour_of_day, language_code='en'):
+    """Use ML model to check table availability with intelligent fallback and multilingual support"""
     global model, model_loaded
     
     print(f"🔧 DEBUG - check_table_availability called with: table={table_number}, guests={guest_count}, day={day_of_week}, hour={hour_of_day}")
@@ -98,11 +98,11 @@ def check_table_availability(table_number, guest_count, day_of_week, hour_of_day
         print(f"❌ Error in ML prediction: {e}")
         print(f"🔧 DEBUG - Falling back to rule-based system")
         # Fallback in case of ML error
-        return fallback_availability_check(table_number, guest_count, day_of_week, hour_of_day)
+        return fallback_availability_check(table_number, guest_count, day_of_week, hour_of_day, language_code)
 
 
-def fallback_availability_check(table_number, guest_count, day_of_week, hour_of_day):
-    """Rule-based fallback system when ML is not working"""
+def fallback_availability_check(table_number, guest_count, day_of_week, hour_of_day, language_code='en'):
+    """Rule-based fallback system when ML is not working with multilingual support"""
     print(f"🔧 DEBUG - Using fallback availability check")
     
     # Simple rules to simulate availability
@@ -134,9 +134,9 @@ def fallback_availability_check(table_number, guest_count, day_of_week, hour_of_
     return availability
 
 
-def find_available_table(guest_count, day_of_week, hour_of_day):
+def find_available_table(guest_count, day_of_week, hour_of_day, language_code='en'):
     """
-    Find available table automatically - IMPROVED VERSION
+    Find available table automatically - IMPROVED VERSION with multilingual support
     Does NOT require table_number from customer - automatically selects best table
     """
     print(f"🔧 DEBUG - find_available_table called with: guests={guest_count}, day={day_of_week}, hour={hour_of_day}")
@@ -145,7 +145,7 @@ def find_available_table(guest_count, day_of_week, hour_of_day):
     
     # Check all tables (1-20) for availability
     for table_number in range(1, 21):
-        if check_table_availability(table_number, guest_count, day_of_week, hour_of_day):
+        if check_table_availability(table_number, guest_count, day_of_week, hour_of_day, language_code):
             available_tables.append(table_number)
             print(f"🔧 DEBUG - Table {table_number} is AVAILABLE")
         else:
