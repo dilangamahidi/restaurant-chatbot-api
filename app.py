@@ -193,9 +193,11 @@ def handle_intent_fallback(intent_name, parameters, language_code):
     else:
         # Default welcome response for unrecognized intents (multilingual)
         from translations import get_text
+        # Get description in appropriate language
+        description = RESTAURANT_INFO['description'].get(language_code, RESTAURANT_INFO['description'].get('en', ''))
         response_text = get_text('welcome', language_code, 
                                 restaurant=RESTAURANT_INFO['name'], 
-                                description=RESTAURANT_INFO['description'])
+                                description=description)
         return jsonify({'fulfillmentText': response_text})
 
 
@@ -362,8 +364,9 @@ def test_translation():
         
         test_results = {}
         for lang in ['en', 'si', 'ta']:
+            description = RESTAURANT_INFO['description'].get(lang, RESTAURANT_INFO['description'].get('en', ''))
             test_results[lang] = {
-                'welcome': get_text('welcome', lang, restaurant=RESTAURANT_INFO['name'], description=RESTAURANT_INFO['description']),
+                'welcome': get_text('welcome', lang, restaurant=RESTAURANT_INFO['name'], description=description),
                 'reservation_confirmed': get_text('reservation_confirmed', lang, name='Test', guests=2, date='Tomorrow', time='7PM', table=5),
                 'menu_header': get_text('menu_header', lang, restaurant=RESTAURANT_INFO['name'])
             }
@@ -389,7 +392,8 @@ def test_language():
         detected = detect_language_fallback(text)
         
         from translations import get_text
-        welcome_msg = get_text('welcome', detected, restaurant=RESTAURANT_INFO['name'], description=RESTAURANT_INFO['description'])
+        description = RESTAURANT_INFO['description'].get(detected, RESTAURANT_INFO['description'].get('en', ''))
+        welcome_msg = get_text('welcome', detected, restaurant=RESTAURANT_INFO['name'], description=description)
         
         return jsonify({
             'input_text': text,
@@ -434,9 +438,10 @@ def test_sinhala_direct():
     """Test diretto per caratteri singalesi"""
     from translations import get_text
     
+    description = RESTAURANT_INFO['description'].get('si', RESTAURANT_INFO['description'].get('en', ''))
     sinhala_text = get_text('welcome', 'si', 
                            restaurant=RESTAURANT_INFO['name'], 
-                           description=RESTAURANT_INFO['description'])
+                           description=description)
     
     response_data = {
         'fulfillmentText': sinhala_text,
