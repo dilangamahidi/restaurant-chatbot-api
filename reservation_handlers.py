@@ -520,50 +520,45 @@ def handle_make_reservation(parameters, language_code='en'):
             'table': table_num
         }
         
-        # Save to Google Sheets
+        # 🆕 IMMEDIATE RESPONSE - Confirm reservation based on availability check
+        # Since we already verified availability and all requirements are valid, confirm immediately
         try:
-            sheets_saved = save_reservation_to_sheets(reservation_data, language_code)
-        except Exception as e:
-            print(f"❌ Error saving to sheets: {e}")
-            sheets_saved = False
-        
-        # IMMEDIATE RESPONSE (always simplified) with multilingual support
-        if sheets_saved:
-            try:
-                from translations import get_text
-                response = get_text('reservation_confirmed', language_code, 
-                                  name=name, guests=guest_count, 
-                                  date=formatted_date, time=formatted_time, 
-                                  table=table_num)
-            except:
-                response = f"🎉 Reservation confirmed for {name}! {guest_count} guests on {formatted_date} at {formatted_time}, Table {table_num}. Confirmation email will be sent shortly!"
-        else:
-            try:
-                from translations import get_text
-                response = get_text('reservation_received', language_code,
-                                  name=name, guests=guest_count,
-                                  date=formatted_date, time=formatted_time)
-            except:
-                response = f"✅ Reservation received for {name}! {guest_count} guests on {formatted_date} at {formatted_time}. Our staff will contact you to confirm details."
+            from translations import get_text
+            response = get_text('reservation_confirmed', language_code, 
+                              name=name, guests=guest_count, 
+                              date=formatted_date, time=formatted_time, 
+                              table=table_num)
+        except:
+            response = f"🎉 Reservation confirmed for {name}! {guest_count} guests on {formatted_date} at {formatted_time}, Table {table_num}. Confirmation email will be sent shortly!"
         
         print(f"🔧 DEBUG - Returning SUCCESS: {response}")
         
-        # Send emails in background (doesn't block response)
+        # Save to Google Sheets and send emails in background (doesn't block response)
         try:
             import threading
-            def send_emails_background():
+            def background_tasks():
                 try:
+                    # Save to sheets
+                    print("📊 Background: Saving to Google Sheets...")
+                    sheets_saved = save_reservation_to_sheets(reservation_data, language_code)
+                    print(f"📊 Background: Sheets saved = {sheets_saved}")
+                    
+                    # Send emails
+                    print("📧 Background: Sending emails...")
                     send_confirmation_email(reservation_data, language_code)
                     send_admin_notification(reservation_data, language_code)
-                    print("📧 Background emails sent")
-                except:
-                    print("❌ Background email failed")
+                    print("📧 Background: Emails sent successfully")
+                except Exception as e:
+                    print(f"❌ Background tasks failed: {e}")
+                    # In case of failure, at least the user got the confirmation
+                    # Staff can manually handle the reservation if needed
             
-            email_thread = threading.Thread(target=send_emails_background)
-            email_thread.daemon = True
-            email_thread.start()
+            bg_thread = threading.Thread(target=background_tasks)
+            bg_thread.daemon = True
+            bg_thread.start()
         except:
-            pass  # Email failure doesn't matter
+            # Even if background thread fails to start, user gets confirmation
+            pass
         
         return jsonify({'fulfillmentText': response})
         
