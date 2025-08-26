@@ -21,7 +21,11 @@ RESTAURANT_INFO = {
     "name": "Restoran",                                        # Restaurant brand name
     "phone": "0764272635",                                     # Primary contact number for customers
     "email": "dilangakavindu123@gmail.com",                   # Email for reservations and admin notifications
-    "address": "Aluthgoga Road, Mawella, Nakulugamuwa, Matara",  # Full physical address for customer reference
+    "address": {                                               # Full physical address in multiple languages
+        "en": "Aluthgoga Road, Mawella, Nakulugamuwa, Matara",
+        "si": "අලුත්ගොග පාර, මාවැල්ල, නකුළුගමුව, මාතර",
+        "ta": "அலுத்கொக சாலை, மாவெல்ல, நகுளுகமுவ, மாத்தறை"
+    },
     "description": {
         "en": "Matara's home of authentic Sri Lankan flavor",
         "si": "අව්‍යාජ ශ්‍රී ලාංකික රස සහිත මාතර නිවස",
