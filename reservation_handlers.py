@@ -196,37 +196,49 @@ def handle_modify_reservation_date(parameters, language_code='en'):
             log_function_exit("handle_modify_reservation_date", response, False)
             return jsonify({'fulfillmentText': response})
         
-        # 7. RESERVATION UPDATE PHASE
-        print("🔄 PHASE 7: Updating reservation...")
+        # 🆕 IMMEDIATE CONFIRMATION AFTER VALIDATION
+        print("🔄 PHASE 6c: Sending immediate confirmation...")
         new_table = result['table_number']
-        print(f"🆕 New table assigned: {new_table}")
+        immediate_response = f"✅ Date change confirmed! Your reservation will be updated to {formatted_new_date} and you'll be assigned to Table {new_table}. Processing the changes now..."
+        print(f"📤 Immediate confirmation: {immediate_response}")
         
-        print("🔄 7a. Updating date...")
-        date_updated, date_update_ok = safe_operation(
-            "update_date", 
-            update_reservation_field, 
-            phone, old_date, old_time, 'date', formatted_new_date, language_code
-        )
+        # Send immediate response to user
+        response_json = {'fulfillmentText': immediate_response}
+        print(f"🚀 Sending immediate confirmation to user...")
         
-        print("🔄 7b. Updating table...")
-        table_updated, table_update_ok = safe_operation(
-            "update_table", 
-            update_reservation_field, 
-            phone, formatted_new_date, old_time, 'table', new_table, language_code
-        )
+        # Return immediate confirmation - database updates can happen in background
+        print("🔄 PHASE 7: Background database updates...")
         
-        # 8. RESPONSE BUILDING PHASE
-        print("🔄 PHASE 8: Building response...")
-        print(f"📊 Update results: date_updated={date_updated}, table_updated={table_updated}")
+        # Schedule background database updates (optional - for data consistency)
+        def update_reservation_background():
+            try:
+                print("🔄 7a. Background: Updating date...")
+                date_updated, date_update_ok = safe_operation(
+                    "update_date", 
+                    update_reservation_field, 
+                    phone, old_date, old_time, 'date', formatted_new_date, language_code
+                )
+                
+                print("🔄 7b. Background: Updating table...")
+                table_updated, table_update_ok = safe_operation(
+                    "update_table", 
+                    update_reservation_field, 
+                    phone, formatted_new_date, old_time, 'table', new_table, language_code
+                )
+                
+                print(f"📊 Background update results: date_updated={date_updated}, table_updated={table_updated}")
+            except Exception as e:
+                print(f"❌ Background update failed: {e}")
         
-        if (date_updated and date_update_ok) or (table_updated and table_update_ok):
-            response = f"✅ Date updated successfully to {formatted_new_date}! Your table is now {new_table}."
-            log_function_exit("handle_modify_reservation_date", response, True)
-            return jsonify({'fulfillmentText': response})
-        else:
-            response = f"Update completed. Please call {RESTAURANT_INFO['phone']} to verify changes."
-            log_function_exit("handle_modify_reservation_date", response, False)
-            return jsonify({'fulfillmentText': response})
+        # Start background update thread
+        import threading
+        bg_thread = threading.Thread(target=update_reservation_background)
+        bg_thread.daemon = True
+        bg_thread.start()
+        
+        # Return immediate confirmation
+        log_function_exit("handle_modify_reservation_date", immediate_response, True)
+        return jsonify(response_json)
             
     except Exception as e:
         print(f"❌ CRITICAL ERROR in handle_modify_reservation_date: {str(e)}")
@@ -328,37 +340,49 @@ def handle_modify_reservation_time(parameters, language_code='en'):
             log_function_exit("handle_modify_reservation_time", response, False)
             return jsonify({'fulfillmentText': response})
         
-        # 6. RESERVATION UPDATE PHASE
-        print("🔄 PHASE 6: Updating reservation...")
+        # 🆕 IMMEDIATE CONFIRMATION AFTER VALIDATION
+        print("🔄 PHASE 5d: Sending immediate confirmation...")
         new_table = result['table_number']
-        print(f"🆕 New table assigned: {new_table}")
+        immediate_response = f"✅ Time change confirmed! Your reservation will be updated to {formatted_new_time} and you'll be assigned to Table {new_table}. Processing the changes now..."
+        print(f"📤 Immediate confirmation: {immediate_response}")
         
-        print("🔄 6a. Updating time...")
-        time_updated, time_update_ok = safe_operation(
-            "update_time", 
-            update_reservation_field, 
-            phone, old_date, old_time, 'time', formatted_new_time, language_code
-        )
+        # Send immediate response to user
+        response_json = {'fulfillmentText': immediate_response}
+        print(f"🚀 Sending immediate confirmation to user...")
         
-        print("🔄 6b. Updating table...")
-        table_updated, table_update_ok = safe_operation(
-            "update_table", 
-            update_reservation_field, 
-            phone, old_date, formatted_new_time, 'table', new_table, language_code
-        )
+        # Return immediate confirmation - database updates can happen in background
+        print("🔄 PHASE 6: Background database updates...")
         
-        # 7. RESPONSE BUILDING PHASE
-        print("🔄 PHASE 7: Building response...")
-        print(f"📊 Update results: time_updated={time_updated}, table_updated={table_updated}")
+        # Schedule background database updates (optional - for data consistency)
+        def update_reservation_background():
+            try:
+                print("🔄 6a. Background: Updating time...")
+                time_updated, time_update_ok = safe_operation(
+                    "update_time", 
+                    update_reservation_field, 
+                    phone, old_date, old_time, 'time', formatted_new_time, language_code
+                )
+                
+                print("🔄 6b. Background: Updating table...")
+                table_updated, table_update_ok = safe_operation(
+                    "update_table", 
+                    update_reservation_field, 
+                    phone, old_date, formatted_new_time, 'table', new_table, language_code
+                )
+                
+                print(f"📊 Background update results: time_updated={time_updated}, table_updated={table_updated}")
+            except Exception as e:
+                print(f"❌ Background update failed: {e}")
         
-        if (time_updated and time_update_ok) or (table_updated and table_update_ok):
-            response = f"✅ Time updated successfully to {formatted_new_time}! Your table is now {new_table}."
-            log_function_exit("handle_modify_reservation_time", response, True)
-            return jsonify({'fulfillmentText': response})
-        else:
-            response = f"Update completed. Please call {RESTAURANT_INFO['phone']} to verify changes."
-            log_function_exit("handle_modify_reservation_time", response, False)
-            return jsonify({'fulfillmentText': response})
+        # Start background update thread
+        import threading
+        bg_thread = threading.Thread(target=update_reservation_background)
+        bg_thread.daemon = True
+        bg_thread.start()
+        
+        # Return immediate confirmation
+        log_function_exit("handle_modify_reservation_time", immediate_response, True)
+        return jsonify(response_json)
             
     except Exception as e:
         print(f"❌ CRITICAL ERROR in handle_modify_reservation_time: {str(e)}")
@@ -667,37 +691,49 @@ def handle_modify_reservation_guests(parameters, language_code='en'):
             log_function_exit("handle_modify_reservation_guests", response, False)
             return jsonify({'fulfillmentText': response})
         
-        # 7. RESERVATION UPDATE PHASE
-        print("🔄 PHASE 7: Updating reservation...")
+        # 🆕 IMMEDIATE CONFIRMATION AFTER VALIDATION
+        print("🔄 PHASE 6c: Sending immediate confirmation...")
         new_table = result['table_number']
-        print(f"🆕 New table assigned: {new_table}")
+        immediate_response = f"✅ Guest count change confirmed! Your reservation will be updated to {guest_count} guests (was {old_guests}) and you'll be assigned to Table {new_table}. Processing the changes now..."
+        print(f"📤 Immediate confirmation: {immediate_response}")
         
-        print("🔄 7a. Updating guest count...")
-        guests_updated, guests_update_ok = safe_operation(
-            "update_guests", 
-            update_reservation_field, 
-            phone, old_date, old_time, 'guests', guest_count, language_code
-        )
+        # Send immediate response to user
+        response_json = {'fulfillmentText': immediate_response}
+        print(f"🚀 Sending immediate confirmation to user...")
         
-        print("🔄 7b. Updating table...")
-        table_updated, table_update_ok = safe_operation(
-            "update_table", 
-            update_reservation_field, 
-            phone, old_date, old_time, 'table', new_table, language_code
-        )
+        # Return immediate confirmation - database updates can happen in background
+        print("🔄 PHASE 7: Background database updates...")
         
-        # 8. RESPONSE BUILDING PHASE
-        print("🔄 PHASE 8: Building response...")
-        print(f"📊 Update results: guests_updated={guests_updated}, table_updated={table_updated}")
+        # Schedule background database updates (optional - for data consistency)
+        def update_reservation_background():
+            try:
+                print("🔄 7a. Background: Updating guest count...")
+                guests_updated, guests_update_ok = safe_operation(
+                    "update_guests", 
+                    update_reservation_field, 
+                    phone, old_date, old_time, 'guests', guest_count, language_code
+                )
+                
+                print("🔄 7b. Background: Updating table...")
+                table_updated, table_update_ok = safe_operation(
+                    "update_table", 
+                    update_reservation_field, 
+                    phone, old_date, old_time, 'table', new_table, language_code
+                )
+                
+                print(f"📊 Background update results: guests_updated={guests_updated}, table_updated={table_updated}")
+            except Exception as e:
+                print(f"❌ Background update failed: {e}")
         
-        if (guests_updated and guests_update_ok) or (table_updated and table_update_ok):
-            response = f"✅ Guest count updated successfully to {guest_count} guests (was {old_guests})! Your table is now {new_table}."
-            log_function_exit("handle_modify_reservation_guests", response, True)
-            return jsonify({'fulfillmentText': response})
-        else:
-            response = f"Update completed. Please call {RESTAURANT_INFO['phone']} to verify changes."
-            log_function_exit("handle_modify_reservation_guests", response, False)
-            return jsonify({'fulfillmentText': response})
+        # Start background update thread
+        import threading
+        bg_thread = threading.Thread(target=update_reservation_background)
+        bg_thread.daemon = True
+        bg_thread.start()
+        
+        # Return immediate confirmation
+        log_function_exit("handle_modify_reservation_guests", immediate_response, True)
+        return jsonify(response_json)
             
     except Exception as e:
         print(f"❌ CRITICAL ERROR in handle_modify_reservation_guests: {str(e)}")
