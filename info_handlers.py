@@ -31,13 +31,15 @@ def handle_show_menu(parameters, language_code='en'):
         menu_category = parameters.get('menu-category', '').lower() if parameters else ''
         
         # If user requested a specific menu category, show only that category
-        if menu_category and menu_category in MENU:
-            items = MENU[menu_category]
+        menu_data = MENU.get(language_code, MENU.get('en', {}))
+        if menu_category and menu_category in menu_data:
+            items = menu_data[menu_category]
             # Format single category response with numbered items
             response_text = f"🍽️ {menu_category.title()} Menu:\n\n" + "\n".join([f"{i}. {item}" for i, item in enumerate(items, 1)])
             return create_utf8_response({'fulfillmentText': response_text})
         else:
             # Show complete menu using multiple messages for better readability
+            menu_data = MENU.get(language_code, MENU.get('en', {}))
             rich_response = {
                 # Main fulfillment text (fallback)
                 "fulfillmentText": get_text('menu_header', language_code, restaurant=RESTAURANT_INFO['name']),
@@ -52,25 +54,25 @@ def handle_show_menu(parameters, language_code='en'):
                     {
                         # Breakfast menu section
                         "text": {
-                            "text": [get_text('breakfast', language_code) + "\n" + "\n".join([f"• {item}" for item in MENU['breakfast']])]
+                            "text": [get_text('breakfast', language_code) + "\n" + "\n".join([f"• {item}" for item in menu_data.get('breakfast', [])])]
                         }
                     },
                     {
                         # Lunch menu section
                         "text": {
-                            "text": [get_text('lunch', language_code) + "\n" + "\n".join([f"• {item}" for item in MENU['lunch']])]
+                            "text": [get_text('lunch', language_code) + "\n" + "\n".join([f"• {item}" for item in menu_data.get('lunch', [])])]
                         }
                     },
                     {
                         # Dinner menu section
                         "text": {
-                            "text": [get_text('dinner', language_code) + "\n" + "\n".join([f"• {item}" for item in MENU['dinner']])]
+                            "text": [get_text('dinner', language_code) + "\n" + "\n".join([f"• {item}" for item in menu_data.get('dinner', [])])]
                         }
                     },
                     {
                         # Beverages section
                         "text": {
-                            "text": [get_text('beverages', language_code) + "\n" + "\n".join([f"• {item}" for item in MENU['beverages']])]
+                            "text": [get_text('beverages', language_code) + "\n" + "\n".join([f"• {item}" for item in menu_data.get('beverages', [])])]
                         }
                     },
                 ]
@@ -78,7 +80,10 @@ def handle_show_menu(parameters, language_code='en'):
             return create_utf8_response(rich_response)
     except:
         # Fallback to English
-        response_text = f"🍽️ {RESTAURANT_INFO['name']} Menu:"
+        english_menu = MENU.get('en', {})
+        response_text = f"🍽️ {RESTAURANT_INFO['name']} Menu:\n\n"
+        for category, items in english_menu.items():
+            response_text += f"{category.title()}:\n" + "\n".join([f"• {item}" for item in items]) + "\n\n"
         return create_utf8_response({'fulfillmentText': response_text})
 
 
@@ -140,7 +145,7 @@ def handle_restaurant_info(language_code='en'):
                 {
                     # Restaurant description
                     "text": {
-                        "text": [f"{RESTAURANT_INFO['description']}"]
+                        "text": [RESTAURANT_INFO['description'].get(language_code, RESTAURANT_INFO['description'].get('en', ''))]
                     }
                 },
                 {
@@ -172,7 +177,7 @@ def handle_restaurant_info(language_code='en'):
         return create_utf8_response(rich_response)
     except:
         # Fallback to English
-        response_text = f"🍽️ {RESTAURANT_INFO['name']}\n{RESTAURANT_INFO['description']}\n📍 Address: {RESTAURANT_INFO['address']}"
+        response_text = f"🍽️ {RESTAURANT_INFO['name']}\n{RESTAURANT_INFO['description']['en']}\n📍 Address: {RESTAURANT_INFO['address']}"
         return create_utf8_response({'fulfillmentText': response_text})
 
 
