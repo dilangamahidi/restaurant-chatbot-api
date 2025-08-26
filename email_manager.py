@@ -121,7 +121,7 @@ def create_confirmation_email_html(reservation_data, language_code='en'):
             <!-- Footer with closing message and restaurant description -->
             <div class="footer">
                 <p>We look forward to serving you at {RESTAURANT_INFO['name']}!</p>
-                <p>{RESTAURANT_INFO['description']}</p>
+                <p>{RESTAURANT_INFO['description']['en']}</p>
                 <p><small>This is an automated confirmation email. Please save it for your records.</small></p>
             </div>
         </div>
@@ -190,7 +190,7 @@ def send_confirmation_email(reservation_data, language_code='en'):
         Need to modify or cancel? Simply reply to this email or call us!
         
         We look forward to serving you at {RESTAURANT_INFO['name']}!
-        {RESTAURANT_INFO['description']}
+        {RESTAURANT_INFO['description']['en']}
         """
         text_part = MIMEText(text_content, 'plain')
         
