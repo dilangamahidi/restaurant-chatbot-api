@@ -151,7 +151,7 @@ def handle_restaurant_info(language_code='en'):
                 {
                     # Physical address
                     "text": {
-                        "text": [get_text('address_label', language_code, address=RESTAURANT_INFO['address'])]
+                        "text": [get_text('address_label', language_code, address=RESTAURANT_INFO['address'].get(language_code, RESTAURANT_INFO['address']['en']))]
                     }
                 },
                 {
@@ -177,7 +177,7 @@ def handle_restaurant_info(language_code='en'):
         return create_utf8_response(rich_response)
     except:
         # Fallback to English
-        response_text = f"🍽️ {RESTAURANT_INFO['name']}\n{RESTAURANT_INFO['description']['en']}\n📍 Address: {RESTAURANT_INFO['address']}"
+        response_text = f"🍽️ {RESTAURANT_INFO['name']}\n{RESTAURANT_INFO['description']['en']}\n📍 Address: {RESTAURANT_INFO['address']['en']}"
         return create_utf8_response({'fulfillmentText': response_text})
 
 
@@ -239,7 +239,7 @@ def handle_restaurant_location(language_code='en'):
                 {
                     # Full address
                     "text": {
-                        "text": [get_text('location_address', language_code, address=RESTAURANT_INFO['address'])]
+                        "text": [get_text('location_address', language_code, address=RESTAURANT_INFO['address'].get(language_code, RESTAURANT_INFO['address']['en']))]
                     }
                 },
             ]
@@ -247,5 +247,5 @@ def handle_restaurant_location(language_code='en'):
         return create_utf8_response(rich_response)
     except:
         # Fallback to English
-        response_text = f"📍 {RESTAURANT_INFO['name']} Location:\n🏠 Address: {RESTAURANT_INFO['address']}"
+        response_text = f"📍 {RESTAURANT_INFO['name']} Location:\n🏠 Address: {RESTAURANT_INFO['address']['en']}"
         return create_utf8_response({'fulfillmentText': response_text})
