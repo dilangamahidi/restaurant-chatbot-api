@@ -102,7 +102,7 @@ def create_confirmation_email_html(reservation_data, language_code='en'):
                 <!-- Restaurant location and contact information -->
                 <h3>📍 Restaurant Information</h3>
                 <div class="contact-info">
-                    <strong>Address:</strong> {RESTAURANT_INFO['address']}<br>
+                    <strong>Address:</strong> {RESTAURANT_INFO['address'].get(language_code, RESTAURANT_INFO['address']['en'])}<br>
                     <strong>Phone:</strong> <a href="tel:{RESTAURANT_INFO['phone']}">{RESTAURANT_INFO['phone']}</a><br>
                     <strong>Email:</strong> <a href="mailto:{RESTAURANT_INFO['email']}">{RESTAURANT_INFO['email']}</a>
                 </div>
@@ -179,7 +179,7 @@ def send_confirmation_email(reservation_data, language_code='en'):
         🪑 Table: Table {reservation_data['table']}
         
         📍 Restaurant Information:
-        Address: {RESTAURANT_INFO['address']}
+        Address: {RESTAURANT_INFO['address'].get(language_code, RESTAURANT_INFO['address']['en'])}
         Phone: {RESTAURANT_INFO['phone']}
         Email: {RESTAURANT_INFO['email']}
         
